@@ -1,0 +1,1818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>NutriCore — Dietitian Nutrition Planning Platform</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<style>
+  html, body { margin:0; padding:0; height:100%; background:#0A0E13; }
+  #root { min-height:100vh; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel" data-presets="react" data-type="module">
+import React, { useState, useMemo, useCallback, useRef, useEffect } from "https://esm.sh/react@18.2.0";
+import ReactDOM from "https://esm.sh/react-dom@18.2.0/client";
+import {
+  LayoutDashboard, User, Calculator, Search, UtensilsCrossed, CalendarDays,
+  FileText, BarChart3, Plus, Trash2, Copy, X, ChevronDown, ChevronRight,
+  AlertTriangle, Pencil, Check, Printer, RotateCcw, Sparkles, Flame,
+  Droplet, Wheat, Beef, Leaf, Sun, Moon, Info, ArrowRightLeft,
+  Download, Upload, UserPlus, FolderInput, ShieldCheck
+} from "https://esm.sh/lucide-react@0.383.0?deps=react@18.2.0";
+import {
+  PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
+  Tooltip, CartesianGrid, Legend
+} from "https://esm.sh/recharts@2.12.7?deps=react@18.2.0,react-dom@18.2.0";
+
+/* ============================== DESIGN TOKENS ============================== */
+const FONT_LINK = "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap";
+
+const THEMES = {
+  dark: {
+    bg: "#0A0E13", bg2: "#0D131A", panel: "rgba(255,255,255,0.045)",
+    panelBorder: "rgba(255,255,255,0.09)", panelHover: "rgba(255,255,255,0.07)",
+    text: "#E7EDF3", textMuted: "#8B96A5", textFaint: "#5A6472",
+    accent: "#45E0B0", accent2: "#7C9EFF", warn: "#FFB25B", danger: "#FF6B6B",
+    fiber: "#C792EA", divider: "rgba(255,255,255,0.08)",
+  },
+  light: {
+    bg: "#F4F6F8", bg2: "#EAEEF1", panel: "rgba(255,255,255,0.75)",
+    panelBorder: "rgba(15,25,35,0.08)", panelHover: "rgba(255,255,255,0.95)",
+    text: "#101820", textMuted: "#5A6472", textFaint: "#8B96A5",
+    accent: "#0FA37B", accent2: "#3B63D6", warn: "#C97A1F", danger: "#D64545",
+    fiber: "#8B4FBF", divider: "rgba(15,25,35,0.08)",
+  },
+};
+
+/* ============================== FOOD DATABASE ============================== */
+function f(id, name, cat, region, diet, cal, p, cb, fa, fb, sg = 0, na = 0, pg = null, tags = []) {
+  return { id, name, cat, region, diet, per100: { cal, protein: p, carbs: cb, fat: fa, fiber: fb, sugar: sg, sodium: na }, pieceGrams: pg, tags };
+}
+
+const FOODS_SEED = [
+  // Breakfast
+  f("poha","Poha","breakfast","Maharashtra","vegan",130,2.5,24,3.5,1.5,2,220),
+  f("upma","Upma","breakfast","South Indian","vegan",130,3,20,4,1.8,1,240),
+  f("idli","Idli","breakfast","South Indian","vegan",150,4,30,1,1.2,0.5,180,null,60),
+  f("dosa","Plain Dosa","breakfast","South Indian","vegan",168,3.9,28,3.7,1,0.5,200,null,60),
+  f("masala_dosa","Masala Dosa","breakfast","South Indian","vegan",200,4,30,7,1.6,1,250,null,150),
+  f("rava_dosa","Rava Dosa","breakfast","South Indian","vegan",190,3.5,29,6,0.8,0.5,230,null,90),
+  f("uttapam","Uttapam","breakfast","South Indian","vegan",160,4,28,3,1.3,1,210,null,90),
+  f("paratha","Plain Paratha","breakfast","North Indian","veg",260,6,36,10,3,1,320,null,50),
+  f("aloo_paratha","Aloo Paratha","breakfast","North Indian","veg",250,5,33,10,2.6,1,340,null,90),
+  f("paneer_paratha","Paneer Paratha","breakfast","North Indian","veg",270,8,30,12,2.2,1,350,null,90),
+  f("methi_paratha","Methi Paratha","breakfast","North Indian","veg",230,6,30,9,3.2,1,300,null,60),
+  f("thepla","Thepla","breakfast","Gujarati","veg",280,6,38,11,3,1,310,null,40),
+  f("besan_chilla","Besan Chilla","breakfast","North Indian","vegan",180,8,18,8,3,1,280,null,70),
+  f("moong_chilla","Moong Dal Chilla","breakfast","North Indian","vegan",140,9,18,3,3.5,1,220,null,70),
+  f("oats_chilla","Oats Chilla","breakfast","Modern Indian","vegan",150,7,20,4,2.8,1,200,null,70),
+  f("egg_bhurji","Egg Bhurji","breakfast","North Indian","egg",180,12,3,13,0.3,1,260),
+  f("omelette","Omelette","breakfast","Common","egg",190,13,2,14,0,0.8,270,null,120),
+  f("boiled_egg","Boiled Egg","breakfast","Common","egg",155,13,1.1,11,0,0.6,124,null,50),
+  f("scrambled_egg","Scrambled Eggs","breakfast","Common","egg",170,12,2,13,0,0.8,250),
+  f("sprouts","Moong Sprouts (steamed)","breakfast","Common","vegan",90,7,17,0.4,4.1,2,20),
+  f("dhokla","Dhokla","breakfast","Gujarati","vegan",160,6,22,5,1.8,3,320,null,50),
+  f("handvo","Handvo","breakfast","Gujarati","veg",220,6,28,9,2.5,1,300),
+  f("pesarattu","Pesarattu","breakfast","South Indian","vegan",150,8,22,3,2.2,1,200,null,90),
+  f("khakhra","Khakhra","breakfast","Gujarati","vegan",380,12,62,9,6,1,420),
+  // Rice
+  f("white_rice","White Rice (cooked)","rice","Common","vegan",130,2.7,28,0.3,0.4,0,1),
+  f("brown_rice","Brown Rice (cooked)","rice","Common","vegan",123,2.7,26,1,1.8,0,4),
+  f("basmati_rice","Basmati Rice (cooked)","rice","Common","vegan",121,2.5,25,0.4,0.5,0,2),
+  f("jeera_rice","Jeera Rice","rice","North Indian","veg",160,3,27,4,0.6,0,190),
+  f("veg_pulao","Vegetable Pulao","rice","Common","veg",150,3,24,4.5,1.6,1.5,220),
+  f("peas_pulao","Peas Pulao","rice","Common","veg",155,3.5,25,4.2,1.8,1.5,220),
+  f("lemon_rice","Lemon Rice","rice","South Indian","vegan",165,3,25,6,0.9,0.5,240),
+  f("curd_rice","Curd Rice","rice","South Indian","veg",120,3,18,3.5,0.4,2,180),
+  f("tomato_rice","Tomato Rice","rice","South Indian","vegan",150,3,26,4,1,2,230),
+  f("coconut_rice","Coconut Rice","rice","South Indian","vegan",180,3,25,8,1.5,1,220),
+  f("veg_biryani","Vegetable Biryani","rice","Common","veg",165,4,22,6,1.8,1.5,260),
+  f("chicken_biryani","Chicken Biryani","rice","Common","nonveg",180,9,20,7,1,1,300),
+  f("khichdi","Khichdi","rice","Common","vegan",120,4,20,3,2,0.5,200),
+  f("dal_khichdi","Dal Khichdi","rice","Common","vegan",125,5,19,3.2,2.4,0.5,210),
+  f("veg_khichdi","Vegetable Khichdi","rice","Common","vegan",115,4,19,2.8,2.6,0.6,210),
+  // Roti / Bread
+  f("roti","Roti / Chapati","roti","Common","vegan",260,8,52,3,7,0.5,300,null,40),
+  f("phulka","Phulka","roti","Common","vegan",255,8,50,2.6,7,0.5,290,null,28),
+  f("multigrain_roti","Multigrain Roti","roti","Common","vegan",250,8,40,6,5,1,300,null,40),
+  f("bajra_roti","Bajra Roti","roti","Common","vegan",245,7,42,4,5,0.5,280,null,40),
+  f("jowar_roti","Jowar Roti","roti","Common","vegan",240,7,44,3,4.6,0.5,270,null,40),
+  f("ragi_roti","Ragi Roti","roti","South Indian","vegan",235,6,42,4,5.4,0.5,270,null,40),
+  f("makki_roti","Makki Roti","roti","Punjabi","vegan",250,6,45,4,4.5,1,270,null,45),
+  f("naan","Naan","roti","North Indian","veg",289,8,50,6,2,2,420,null,90),
+  f("tandoori_roti","Tandoori Roti","roti","North Indian","vegan",250,8,48,2.5,3,1,300,null,40),
+  // Dal / Pulses
+  f("moong_dal","Moong Dal (cooked)","dal","Common","vegan",105,7,17,0.5,4,1,250),
+  f("masoor_dal","Masoor Dal (cooked)","dal","Common","vegan",116,9,20,0.4,4,1,250),
+  f("toor_dal","Toor Dal (cooked)","dal","Common","vegan",120,7,20,1,3,1,250),
+  f("chana_dal","Chana Dal (cooked)","dal","Common","vegan",164,9,27,3,5,1,250),
+  f("urad_dal","Urad Dal (cooked)","dal","Common","vegan",110,8,19,0.5,3.5,1,250),
+  f("rajma","Rajma (cooked)","dal","North Indian","vegan",127,9,22,0.5,6,1,280),
+  f("chole","Chole","dal","North Indian","vegan",164,8,27,3,7,2,320),
+  f("black_chana","Black Chana (cooked)","dal","Common","vegan",160,8,27,3,5.6,1,220),
+  f("green_gram","Green Gram (cooked)","dal","Common","vegan",105,7,19,0.4,4,1,200),
+  f("sprouted_moong_curry","Sprouted Moong Curry","dal","Common","vegan",95,7,17,0.5,4.2,1,210),
+  f("mixed_dal","Mixed Dal (cooked)","dal","Common","vegan",115,7,19,1,3.8,1,240),
+  f("dal_makhani","Dal Makhani","dal","Punjabi","veg",170,6,14,10,3.5,2,340),
+  f("sambar","Sambar","dal","South Indian","vegan",70,3,10,2,2.4,1.5,300),
+  f("rasam","Rasam","dal","South Indian","vegan",35,1,5,1,0.6,1,280),
+  f("cholar_dal","Cholar Dal","dal","Bengali","veg",140,7,20,3,4,3,260),
+  // Vegetables / Sabzi
+  f("aloo_sabzi","Aloo Sabzi","sabzi","Common","vegan",130,2,18,5,2,1,260),
+  f("gobi_sabzi","Gobi Sabzi","sabzi","Common","vegan",100,2.5,10,5,2.4,2,250),
+  f("bhindi_sabzi","Bhindi Sabzi","sabzi","Common","vegan",95,2,8,6,3.2,1.5,240),
+  f("baingan_sabzi","Baingan Sabzi","sabzi","Common","vegan",100,1.5,9,6.5,2.6,2,250),
+  f("lauki_sabzi","Lauki Sabzi","sabzi","Common","vegan",60,1,7,3,1.2,1,220),
+  f("tori_sabzi","Tori Sabzi","sabzi","Common","vegan",65,1.2,7,3.2,1.4,1,220),
+  f("karela_sabzi","Karela Sabzi","sabzi","Common","vegan",90,1.8,8,5,2.6,1.5,230),
+  f("palak_sabzi","Palak (Saag)","sabzi","North Indian","veg",100,3.4,8,6,2.6,1,270),
+  f("methi_sabzi","Methi Sabzi","sabzi","North Indian","vegan",95,3,7,6,3,1,250),
+  f("sarson_saag","Sarson Ka Saag","sabzi","Punjabi","veg",110,4,8,7,3.4,1.5,280),
+  f("matar_sabzi","Matar Sabzi","sabzi","Common","vegan",110,5,14,4,4.4,3,220),
+  f("beans_sabzi","Beans Sabzi","sabzi","Common","vegan",80,2.4,9,4,3.6,2,220),
+  f("carrot_sabzi","Carrot Sabzi","sabzi","Common","vegan",75,1.4,9,3.6,2.6,4,210),
+  f("beetroot_sabzi","Beetroot Sabzi","sabzi","Common","vegan",80,1.6,10,3.5,2,5,210),
+  f("cabbage_sabzi","Cabbage Sabzi","sabzi","Common","vegan",85,1.8,9,4.5,2.4,3,220),
+  f("cauliflower_sabzi","Cauliflower Sabzi","sabzi","Common","vegan",100,2.2,9,5.5,2.4,2,240),
+  f("capsicum_sabzi","Capsicum Sabzi","sabzi","Common","vegan",90,1.6,8,5.4,1.8,3,220),
+  f("pumpkin_sabzi","Pumpkin Sabzi","sabzi","Common","vegan",70,1.2,9,3,1.6,3,200),
+  f("mushroom_sabzi","Mushroom Sabzi","sabzi","Common","vegan",90,3,6,5.5,1.6,1,240),
+  f("tomato_onion_sabzi","Tomato Onion Sabzi","sabzi","Common","vegan",85,1.6,8,5.4,1.8,3,220),
+  f("mixed_veg_sabzi","Mixed Vegetable Sabzi","sabzi","Common","vegan",100,2.4,10,5.4,2.6,3,230),
+  f("misal","Misal","sabzi","Maharashtra","vegan",150,6,18,6,4,2,320),
+  f("usal","Usal","sabzi","Maharashtra","vegan",130,7,17,4,5,1.5,280),
+  f("gatte_sabzi","Gatte Ki Sabzi","sabzi","Rajasthani","veg",180,6,15,10,2.6,2,320),
+  f("ker_sangri","Ker Sangri","sabzi","Rajasthani","vegan",140,5,15,7,4,1,300),
+  f("shukto","Shukto","sabzi","Bengali","veg",70,2,6,4,2,2,220),
+  // Non-veg
+  f("chicken_breast","Chicken Breast (grilled)","nonveg","Common","nonveg",165,31,0,3.6,0,0,74),
+  f("chicken_thigh","Chicken Thigh (cooked)","nonveg","Common","nonveg",209,26,0,11,0,0,90),
+  f("chicken_curry","Chicken Curry","nonveg","Common","nonveg",180,16,5,11,0.6,1,350),
+  f("tandoori_chicken","Tandoori Chicken","nonveg","North Indian","nonveg",150,25,2,5,0.2,1,400),
+  f("chicken_tikka","Chicken Tikka","nonveg","North Indian","nonveg",180,24,3,8,0.2,1,380),
+  f("fish_curry","Fish Curry (Rohu)","nonveg","Common","nonveg",140,18,3,6,0.2,1,320),
+  f("grilled_fish","Grilled Fish","nonveg","Common","nonveg",130,22,0,4,0,0.2,220),
+  f("fish_fry","Fish Fry","nonveg","Common","nonveg",200,18,6,13,0.3,0.5,350),
+  f("bengali_fish_curry","Bengali Fish Curry","nonveg","Bengali","nonveg",150,15,3,8,0.2,1,340),
+  f("mutton_curry","Mutton Curry","nonveg","Common","nonveg",250,20,4,18,0.4,1,360),
+  f("egg_curry","Egg Curry","nonveg","Common","egg",150,9,4,10,0.4,2,340),
+  // Dairy / Paneer / Vegan proteins
+  f("paneer","Paneer","dairy","Common","veg",265,18,6,20,0,3,22),
+  f("tofu","Tofu","dairy","Common","vegan",76,8,2,4.5,0.4,0.6,7),
+  f("soy_chunks","Soy Chunks (cooked)","dairy","Common","vegan",110,17,8,0.6,4,1,10),
+  f("soya_milk","Soya Milk","dairy","Common","vegan",33,3,2,1.5,0.4,1.5,12),
+  f("milk_full","Milk (full cream)","dairy","Common","veg",61,3.2,4.7,3.3,0,4.7,44),
+  f("milk_toned","Milk (toned)","dairy","Common","veg",48,3.1,4.9,1.7,0,4.9,44),
+  f("curd","Curd (whole milk)","dairy","Common","veg",60,3.5,4.7,3.3,0,4.7,36),
+  f("greek_yogurt","Greek Yogurt","dairy","Common","veg",59,10,3.6,0.4,0,3,36),
+  f("buttermilk","Buttermilk","dairy","Common","veg",25,1,3,0.7,0,3,90),
+  f("cheese","Cheese (processed)","dairy","Common","veg",300,20,4,24,0,3,900),
+  // Fruits
+  f("apple","Apple","fruit","Common","vegan",52,0.3,14,0.2,2.4,10,1,182),
+  f("banana","Banana","fruit","Common","vegan",89,1.1,23,0.3,2.6,12,1,118),
+  f("orange","Orange","fruit","Common","vegan",47,0.9,12,0.1,2.4,9,0,131),
+  f("mango","Mango","fruit","Common","vegan",60,0.8,15,0.4,1.6,14,1,165),
+  f("papaya","Papaya","fruit","Common","vegan",43,0.5,11,0.3,1.7,8,3,150),
+  f("guava","Guava","fruit","Common","vegan",68,2.6,14,1,5.4,9,2,150),
+  f("pomegranate","Pomegranate","fruit","Common","vegan",83,1.7,19,1.2,4,14,3,150),
+  f("watermelon","Watermelon","fruit","Common","vegan",30,0.6,8,0.2,0.4,6,1,280),
+  f("muskmelon","Muskmelon","fruit","Common","vegan",34,0.8,8,0.2,0.9,8,16,177),
+  f("grapes","Grapes","fruit","Common","vegan",69,0.7,18,0.2,0.9,16,2,92),
+  f("kiwi","Kiwi","fruit","Common","vegan",61,1.1,15,0.5,3,9,3,76),
+  f("pear","Pear","fruit","Common","vegan",57,0.4,15,0.1,3.1,10,1,178),
+  f("pineapple","Pineapple","fruit","Common","vegan",50,0.5,13,0.1,1.4,10,1,165),
+  f("berries_mixed","Mixed Berries","fruit","Common","vegan",43,0.7,10,0.3,2.4,7,1,100),
+  f("chikoo","Chikoo","fruit","Common","vegan",83,0.4,20,1.1,5.3,14,12,150),
+  f("coconut_fresh","Fresh Coconut","fruit","Common","vegan",354,3.3,15,33,9,6,20,45),
+  f("dates","Dates","fruit","Common","vegan",282,2.5,75,0.4,7,63,1,8),
+  f("figs_fresh","Figs (fresh)","fruit","Common","vegan",74,0.8,19,0.3,2.9,16,1,50),
+  // Nuts & seeds
+  f("almonds","Almonds","nuts","Common","vegan",579,21,22,50,12,4,1),
+  f("walnuts","Walnuts","nuts","Common","vegan",654,15,14,65,6.7,2.6,2),
+  f("cashews","Cashews","nuts","Common","vegan",553,18,30,44,3.3,6,12),
+  f("pistachios","Pistachios","nuts","Common","vegan",560,20,28,45,10,8,1),
+  f("peanuts","Peanuts","nuts","Common","vegan",567,26,16,49,8.5,4,18),
+  f("raisins","Raisins","nuts","Common","vegan",299,3.1,79,0.5,3.7,59,11),
+  f("chia_seeds","Chia Seeds","nuts","Common","vegan",486,17,42,31,34,0,16),
+  f("flax_seeds","Flax Seeds","nuts","Common","vegan",534,18,29,42,27,0.3,30),
+  f("pumpkin_seeds","Pumpkin Seeds","nuts","Common","vegan",559,30,11,49,6,1.4,7),
+  f("sunflower_seeds","Sunflower Seeds","nuts","Common","vegan",584,21,20,51,8.6,2.6,9),
+  f("sesame_seeds","Sesame Seeds","nuts","Common","vegan",573,18,23,50,12,0.3,11),
+  f("roasted_chana","Roasted Chana","nuts","Common","vegan",364,20,61,6,17,11,24),
+  f("makhana","Makhana (roasted)","nuts","Common","vegan",347,9.7,76,0.7,14,1,233),
+  // Oils & fats
+  f("ghee","Ghee","oil","Common","veg",900,0,0,100,0,0,0),
+  f("butter","Butter","oil","Common","veg",717,0.9,0.1,81,0,0.1,11),
+  f("olive_oil","Olive Oil","oil","Common","vegan",884,0,0,100,0,0,2),
+  f("mustard_oil","Mustard Oil","oil","Common","vegan",884,0,0,100,0,0,0),
+  f("groundnut_oil","Groundnut Oil","oil","Common","vegan",884,0,0,100,0,0,0),
+  f("coconut_oil","Coconut Oil","oil","Common","vegan",892,0,0,100,0,0,0),
+  f("sunflower_oil","Sunflower Oil","oil","Common","vegan",884,0,0,100,0,0,0),
+  f("rice_bran_oil","Rice Bran Oil","oil","Common","vegan",884,0,0,100,0,0,0),
+  f("sesame_oil","Sesame Oil","oil","Common","vegan",884,0,0,100,0,0,0),
+  // Beverages
+  f("tea_milk","Tea (with milk & sugar)","beverage","Common","veg",37,1,5,1.3,0,4,10,150),
+  f("black_tea","Black Tea","beverage","Common","vegan",2,0.1,0.3,0,0,0,3,150),
+  f("coffee_milk","Coffee (with milk)","beverage","Common","veg",40,1.2,5,1.6,0,4,15,150),
+  f("black_coffee","Black Coffee","beverage","Common","vegan",2,0.1,0.3,0,0,0,3,150),
+  f("green_tea","Green Tea","beverage","Common","vegan",1,0,0.2,0,0,0,1,150),
+  f("lassi_sweet","Sweet Lassi","beverage","Punjabi","veg",80,2.6,12,2.5,0,11,40,250),
+  f("smoothie_fruit","Fruit Smoothie","beverage","Common","veg",70,1.5,14,1,1,11,30,250),
+  f("fresh_juice","Fresh Fruit Juice","beverage","Common","vegan",45,0.5,11,0.1,0.3,9,5,250),
+  f("coconut_water","Coconut Water","beverage","Common","vegan",19,0.7,3.7,0.2,1.1,2.6,105,250),
+  f("soft_drink","Soft Drink","beverage","Common","vegan",41,0,10.6,0,0,10.6,10,250),
+  // Regional specials
+  f("thalipeeth","Thalipeeth","snack","Maharashtra","vegan",220,6,30,8,4,1,300,null,50),
+  f("sabudana_khichdi","Sabudana Khichdi","snack","Maharashtra","vegan",190,2,30,7,1,2,220),
+  f("dal_baati","Dal Baati","snack","Rajasthani","veg",300,7,35,14,3,1,340),
+  f("pongal","Pongal","breakfast","South Indian","veg",150,4,22,5,1.4,1,220),
+  f("appam","Appam","breakfast","South Indian","vegan",150,2.5,28,3,0.9,2,120,null,60),
+  f("puttu","Puttu","breakfast","South Indian","vegan",160,3,32,1.5,1.8,0.5,80),
+  f("fafda","Fafda","snack","Gujarati","vegan",400,8,45,21,3,1,420),
+  f("sev_tameta","Sev Tameta","snack","Gujarati","veg",180,5,15,11,2.4,3,320),
+  f("bhel_puri","Bhel Puri","snack","Maharashtra","vegan",180,4,30,5,2.6,4,380),
+];
+
+const CAT_LABEL = {
+  breakfast: "Breakfast", rice: "Rice", roti: "Roti / Bread", dal: "Dal / Pulses",
+  sabzi: "Vegetables", nonveg: "Non-Vegetarian", dairy: "Dairy / Protein",
+  fruit: "Fruits", nuts: "Nuts & Seeds", oil: "Oils & Fats", beverage: "Beverages", snack: "Snacks",
+};
+const CAT_ICON = { breakfast: Sun, rice: Wheat, roti: Wheat, dal: Leaf, sabzi: Leaf, nonveg: Beef, dairy: Droplet, fruit: Leaf, nuts: Leaf, oil: Droplet, beverage: Droplet, snack: UtensilsCrossed };
+
+/* ============================== UNITS ============================== */
+const U = (unit, grams) => ({ unit, grams });
+function unitsFor(food) {
+  const pg = food.pieceGrams;
+  switch (food.cat) {
+    case "roti": return [U("piece", pg || 40), U("g", 1)];
+    case "breakfast": return pg ? [U("piece", pg), U("g", 1), U("katori", 150)] : [U("g", 1), U("katori", 150), U("bowl", 200)];
+    case "rice": return [U("g", 1), U("katori", 150), U("bowl", 200), U("cup", 200)];
+    case "dal": return [U("g", 1), U("katori", 150), U("bowl", 200)];
+    case "sabzi": return [U("g", 1), U("katori", 150), U("bowl", 200)];
+    case "dairy": return [U("g", 1), U("ml", 1), U("katori", 150), U("glass", 250), U("cup", 240)];
+    case "fruit": return [U("piece", pg || 150), U("g", 1)];
+    case "nuts": return [U("g", 1), U("tbsp", 10)];
+    case "oil": return [U("g", 1), U("tsp", 5), U("tbsp", 15)];
+    case "beverage": return [U("ml", 1), U("cup", pg || 150), U("glass", 250)];
+    case "nonveg": return pg ? [U("piece", pg), U("g", 1)] : [U("g", 1), U("katori", 150)];
+    case "snack": return pg ? [U("piece", pg), U("g", 1)] : [U("g", 1), U("katori", 150)];
+    default: return [U("g", 1), U("serving", 100)];
+  }
+}
+function gramsFor(food, qty, unit) {
+  const opts = unitsFor(food);
+  const match = opts.find((o) => o.unit === unit) || opts[0];
+  return qty * match.grams;
+}
+function nutrientsFor(food, grams) {
+  const r = grams / 100;
+  const p = food.per100;
+  return { cal: p.cal * r, protein: p.protein * r, carbs: p.carbs * r, fat: p.fat * r, fiber: p.fiber * r, sugar: (p.sugar || 0) * r, sodium: (p.sodium || 0) * r };
+}
+const round = (n, d = 0) => { const m = Math.pow(10, d); return Math.round((n + Number.EPSILON) * m) / m; };
+
+/* ============================== CALCULATION ENGINE ============================== */
+function calcBMI(weightKg, heightCm) {
+  if (!weightKg || !heightCm) return null;
+  const h = heightCm / 100;
+  return weightKg / (h * h);
+}
+function bmiCategory(bmi) {
+  if (bmi == null) return "—";
+  if (bmi < 18.5) return "Underweight";
+  if (bmi < 25) return "Normal";
+  if (bmi < 30) return "Overweight";
+  return "Obese";
+}
+function healthyWeightRange(heightCm) {
+  const h = heightCm / 100;
+  return [round(18.5 * h * h, 1), round(24.9 * h * h, 1)];
+}
+function bmrMifflin(w, h, age, gender) {
+  return gender === "male" ? 10 * w + 6.25 * h - 5 * age + 5 : 10 * w + 6.25 * h - 5 * age - 161;
+}
+function bmrHarrisBenedict(w, h, age, gender) {
+  return gender === "male" ? 88.362 + 13.397 * w + 4.799 * h - 5.677 * age : 447.593 + 9.247 * w + 3.098 * h - 4.33 * age;
+}
+function bmrRevisedHB(w, h, age, gender) {
+  return gender === "male" ? 13.397 * w + 4.799 * h - 5.677 * age + 88.362 : 9.247 * w + 3.098 * h - 4.33 * age + 447.593;
+}
+const BMR_FORMULAS = {
+  mifflin: { label: "Mifflin-St Jeor", fn: bmrMifflin },
+  harris: { label: "Harris-Benedict (Original)", fn: bmrHarrisBenedict },
+  revisedHarris: { label: "Harris-Benedict (Revised)", fn: bmrRevisedHB },
+};
+const ACTIVITY_FACTORS = {
+  sedentary: { label: "Sedentary (little/no exercise)", factor: 1.2 },
+  light: { label: "Lightly active (1-3 days/wk)", factor: 1.375 },
+  moderate: { label: "Moderately active (3-5 days/wk)", factor: 1.55 },
+  active: { label: "Very active (6-7 days/wk)", factor: 1.725 },
+  veryActive: { label: "Extra active (physical job/athlete)", factor: 1.9 },
+};
+const GOALS = {
+  loss: { label: "Weight Loss", adjust: -500 },
+  mildLoss: { label: "Mild Weight Loss", adjust: -250 },
+  maintenance: { label: "Maintenance", adjust: 0 },
+  gain: { label: "Weight Gain", adjust: 500 },
+  custom: { label: "Custom Target", adjust: 0 },
+};
+
+const MEAL_SLOTS = [
+  { key: "earlyMorning", label: "Early Morning", defaultTime: "06:30" },
+  { key: "breakfast", label: "Breakfast", defaultTime: "08:30" },
+  { key: "midMorning", label: "Mid-Morning", defaultTime: "11:00" },
+  { key: "lunch", label: "Lunch", defaultTime: "13:30" },
+  { key: "eveningSnack", label: "Evening Snack", defaultTime: "17:00" },
+  { key: "dinner", label: "Dinner", defaultTime: "20:30" },
+  { key: "bedtime", label: "Bedtime", defaultTime: "22:00" },
+];
+const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+function emptyDay() {
+  const d = {};
+  MEAL_SLOTS.forEach((m) => (d[m.key] = []));
+  return d;
+}
+function emptyWeek() {
+  const w = {};
+  DAYS.forEach((day) => (w[day] = emptyDay()));
+  return w;
+}
+
+function itemNutrients(item, foodIndex) {
+  if (item.override) return item.override;
+  const food = foodIndex[item.foodId];
+  if (!food) return { cal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 };
+  const grams = gramsFor(food, item.qty, item.unit);
+  return nutrientsFor(food, grams);
+}
+function sumNutrients(list) {
+  return list.reduce((acc, n) => ({
+    cal: acc.cal + n.cal, protein: acc.protein + n.protein, carbs: acc.carbs + n.carbs,
+    fat: acc.fat + n.fat, fiber: acc.fiber + n.fiber, sugar: acc.sugar + n.sugar, sodium: acc.sodium + n.sodium,
+  }), { cal: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 });
+}
+function mealTotals(items, foodIndex) {
+  return sumNutrients(items.map((it) => itemNutrients(it, foodIndex)));
+}
+function dayTotals(day, foodIndex) {
+  const all = MEAL_SLOTS.flatMap((m) => day[m.key] || []);
+  return mealTotals(all, foodIndex);
+}
+function weekTotals(week, foodIndex) {
+  return DAYS.map((d) => dayTotals(week[d], foodIndex));
+}
+
+/* ============================== CLIENT EXPORT / IMPORT LAYER ============================== */
+const APP_NAME = "NutriCore Dietitian Diet Planner";
+const SCHEMA_VERSION = 1;
+const APP_VERSION = "1.0.0";
+
+function genClientId() {
+  const d = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const rand = Math.random().toString(36).slice(2, 7).toUpperCase();
+  return `CL-${ymd}-${rand}`;
+}
+
+function safeFileName(str) {
+  return (str || "").trim().replace(/[^a-zA-Z0-9_\- ]/g, "").replace(/\s+/g, "_");
+}
+
+/* Walk the week and collect a full snapshot of every food actually referenced in the diet,
+   so the diet can be reconstructed later even if that food is later edited/removed
+   from the live food database. */
+function buildFoodSnapshot(week, foodIndex) {
+  const snapshot = {};
+  DAYS.forEach((day) => {
+    MEAL_SLOTS.forEach((m) => {
+      (week[day][m.key] || []).forEach((item) => {
+        if (item.foodId && foodIndex[item.foodId] && !snapshot[item.foodId]) {
+          snapshot[item.foodId] = foodIndex[item.foodId];
+        }
+      });
+    });
+  });
+  return snapshot;
+}
+
+/* Build the complete portable client record from the app's live state. */
+function serializeClient(state) {
+  const {
+    clientId, patient, customFoods, week, foodIndex, activeDay, instructions,
+    bmrFormula, goal, bmrOverride, calorieOverride,
+    macroMethod, macroPct, macroPerKg, macroManual, microTargets, mealPct, mealTimes,
+  } = state;
+
+  return {
+    application: APP_NAME,
+    exportType: "client",
+    version: APP_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    exportDate: new Date().toISOString(),
+    clientId,
+    clientName: patient.name || "",
+    client: {
+      patient,
+      settings: {
+        bmrFormula, goal, bmrOverride, calorieOverride,
+        macroMethod, macroPct, macroPerKg, macroManual,
+        microTargets, mealPct, mealTimes,
+      },
+      dietPlan: { week, activeDay },
+      instructions,
+      customFoods,
+      foodSnapshot: buildFoodSnapshot(week, foodIndex),
+    },
+  };
+}
+
+/* Validate an imported file's structure before trusting it. Returns { ok, error, data } */
+function validateClientFile(parsed) {
+  if (!parsed || typeof parsed !== "object") {
+    return { ok: false, error: "This file is not a valid NutriCore client file." };
+  }
+  if (parsed.application !== APP_NAME || parsed.exportType !== "client") {
+    return { ok: false, error: "This file is not a valid NutriCore Dietitian Diet Planner client file." };
+  }
+  if (!parsed.client || typeof parsed.client !== "object") {
+    return { ok: false, error: "This client file is missing its data and cannot be imported." };
+  }
+  if (parsed.schemaVersion && parsed.schemaVersion > SCHEMA_VERSION) {
+    return { ok: false, error: "This client file was created by a newer version of NutriCore. Please update the app." };
+  }
+  return { ok: true, data: migrateClientData(parsed) };
+}
+
+/* Simple migration hook — transforms older schema versions into the current shape.
+   Currently a no-op pass-through since we're at schemaVersion 1, but keeps the
+   architecture ready for future schema changes. */
+function migrateClientData(parsed) {
+  return parsed;
+}
+
+/* Restore application state fields from a validated import, filling sensible
+   defaults for anything missing so the app never crashes on a partial file. */
+function deserializeClient(parsed, defaults) {
+  const c = parsed.client || {};
+  const patient = { ...defaults.patient, ...(c.patient || {}) };
+  const settings = c.settings || {};
+  const dietPlan = c.dietPlan || {};
+  const week = dietPlan.week || defaults.week;
+  const activeDay = dietPlan.activeDay || defaults.activeDay;
+  const instructions = Array.isArray(c.instructions) ? c.instructions : defaults.instructions;
+  const importedCustomFoods = Array.isArray(c.customFoods) ? c.customFoods : [];
+  const foodSnapshot = c.foodSnapshot || {};
+
+  return {
+    clientId: parsed.clientId || genClientId(),
+    patient,
+    week,
+    activeDay,
+    instructions,
+    importedCustomFoods,
+    foodSnapshot,
+    bmrFormula: settings.bmrFormula || defaults.bmrFormula,
+    goal: settings.goal || defaults.goal,
+    bmrOverride: settings.bmrOverride != null ? settings.bmrOverride : null,
+    calorieOverride: settings.calorieOverride != null ? settings.calorieOverride : null,
+    macroMethod: settings.macroMethod || defaults.macroMethod,
+    macroPct: settings.macroPct || defaults.macroPct,
+    macroPerKg: settings.macroPerKg || defaults.macroPerKg,
+    macroManual: settings.macroManual || defaults.macroManual,
+    microTargets: settings.microTargets || defaults.microTargets,
+    mealPct: settings.mealPct || defaults.mealPct,
+    mealTimes: settings.mealTimes || defaults.mealTimes,
+  };
+}
+
+function downloadJSON(obj, filename) {
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ============================== SMALL UI PRIMITIVES ============================== */
+function Panel({ children, style, className = "", theme }) {
+  return (
+    <div className={`rounded-2xl backdrop-blur-xl ${className}`}
+      style={{ background: theme.panel, border: `1px solid ${theme.panelBorder}`, ...style }}>
+      {children}
+    </div>
+  );
+}
+function Field({ label, children, theme, hint }) {
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span style={{ color: theme.textMuted, fontSize: 12, fontWeight: 600, letterSpacing: 0.4, textTransform: "uppercase" }}>{label}</span>
+      {children}
+      {hint && <span style={{ color: theme.textFaint, fontSize: 11 }}>{hint}</span>}
+    </label>
+  );
+}
+function inputStyle(theme) {
+  return {
+    background: "rgba(127,127,127,0.08)", border: `1px solid ${theme.panelBorder}`, color: theme.text,
+    borderRadius: 10, padding: "9px 12px", fontSize: 14, outline: "none", width: "100%", fontFamily: "Inter, sans-serif",
+  };
+}
+function TextInput({ theme, ...props }) { return <input {...props} style={{ ...inputStyle(theme), ...(props.style || {}) }} />; }
+function Select({ theme, children, ...props }) {
+  return <select {...props} style={{ ...inputStyle(theme), ...(props.style || {}) }}>{children}</select>;
+}
+function Pill({ active, onClick, children, theme, color }) {
+  return (
+    <button onClick={onClick} className="transition-all"
+      style={{
+        padding: "6px 13px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer",
+        border: `1px solid ${active ? (color || theme.accent) : theme.panelBorder}`,
+        background: active ? `${color || theme.accent}22` : "transparent",
+        color: active ? (color || theme.accent) : theme.textMuted,
+      }}>{children}</button>
+  );
+}
+function Btn({ children, onClick, theme, variant = "primary", style, disabled, icon: Icon, small }) {
+  const base = { display: "inline-flex", alignItems: "center", gap: 7, cursor: disabled ? "not-allowed" : "pointer", borderRadius: 11, fontWeight: 600, fontSize: small ? 12.5 : 13.5, padding: small ? "7px 12px" : "10px 16px", border: "1px solid transparent", opacity: disabled ? 0.5 : 1, transition: "all .15s", fontFamily: "Inter, sans-serif" };
+  const variants = {
+    primary: { background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})`, color: "#06110D", boxShadow: `0 4px 20px -6px ${theme.accent}88` },
+    ghost: { background: "transparent", border: `1px solid ${theme.panelBorder}`, color: theme.text },
+    danger: { background: "transparent", border: `1px solid ${theme.danger}55`, color: theme.danger },
+    soft: { background: `${theme.accent}14`, color: theme.accent },
+  };
+  return <button disabled={disabled} onClick={onClick} style={{ ...base, ...variants[variant], ...style }}>{Icon && <Icon size={small ? 13 : 15} />}{children}</button>;
+}
+
+/* Animated nutrient ring */
+function NutrientRing({ value, target, size = 180, stroke = 14, color, label, sublabel, theme, unit = "" }) {
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const pct = target > 0 ? Math.min(value / target, 1) : 0;
+  const offset = c * (1 - pct);
+  return (
+    <svg width={size} height={size} style={{ display: "block" }}>
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={theme.divider} strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round"
+        strokeDasharray={c} strokeDashoffset={offset} transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        style={{ transition: "stroke-dashoffset 0.7s cubic-bezier(.4,0,.2,1)", filter: `drop-shadow(0 0 6px ${color}88)` }} />
+      <text x="50%" y="46%" textAnchor="middle" fill={theme.text} fontSize={size * 0.16} fontWeight="700" fontFamily="Space Grotesk, sans-serif">{round(value)}</text>
+      <text x="50%" y="60%" textAnchor="middle" fill={theme.textMuted} fontSize={size * 0.065} fontFamily="JetBrains Mono, monospace">/ {round(target)}{unit}</text>
+      {label && <text x="50%" y="78%" textAnchor="middle" fill={theme.textFaint} fontSize={size * 0.06} letterSpacing="1.5" fontFamily="Inter, sans-serif">{label.toUpperCase()}</text>}
+    </svg>
+  );
+}
+function MiniBar({ value, target, color, theme }) {
+  const pct = target > 0 ? Math.min((value / target) * 100, 100) : 0;
+  return (
+    <div style={{ height: 6, borderRadius: 4, background: theme.divider, overflow: "hidden" }}>
+      <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 4, transition: "width .5s ease" }} />
+    </div>
+  );
+}
+
+function Toast({ toast, theme }) {
+  if (!toast) return null;
+  const isError = toast.type === "error";
+  return (
+    <div className="no-print" style={{
+      position: "fixed", bottom: 22, right: 22, zIndex: 200, maxWidth: 340,
+      background: theme.bg2, border: `1px solid ${isError ? theme.danger : theme.accent}55`,
+      borderRadius: 12, padding: "12px 16px", boxShadow: "0 12px 30px -10px rgba(0,0,0,0.5)",
+      display: "flex", alignItems: "flex-start", gap: 10, animation: "toastIn .25s ease",
+    }}>
+      {isError ? <AlertTriangle size={16} color={theme.danger} style={{ marginTop: 1 }} /> : <ShieldCheck size={16} color={theme.accent} style={{ marginTop: 1 }} />}
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: isError ? theme.danger : theme.text }}>{toast.title}</div>
+        {toast.detail && <div style={{ fontSize: 11.5, color: theme.textFaint, marginTop: 2 }}>{toast.detail}</div>}
+      </div>
+    </div>
+  );
+}
+
+function ConfirmDialog({ theme, title, message, confirmLabel = "Continue", onConfirm, onCancel }) {
+  return (
+    <div className="no-print" style={{ position: "fixed", inset: 0, zIndex: 300, background: "rgba(4,7,10,0.6)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <Panel theme={theme} className="p-6" style={{ maxWidth: 420, width: "100%" }}>
+        <div className="flex items-center gap-2" style={{ marginBottom: 10 }}>
+          <AlertTriangle size={17} color={theme.warn} />
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{title}</div>
+        </div>
+        <div style={{ fontSize: 13, color: theme.textMuted, lineHeight: 1.5, marginBottom: 18 }}>{message}</div>
+        <div className="flex justify-end gap-2">
+          <Btn theme={theme} variant="ghost" onClick={onCancel}>Cancel</Btn>
+          <Btn theme={theme} variant="primary" onClick={onConfirm}>{confirmLabel}</Btn>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+/* ============================== FOOD PICKER ============================== */
+function FoodPicker({ theme, foodIndex, allFoods, onAdd, patient }) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [qty, setQty] = useState(1);
+  const [unit, setUnit] = useState(null);
+
+  const results = useMemo(() => {
+    if (!query.trim()) return [];
+    const q = query.toLowerCase();
+    return allFoods.filter((f) => f.name.toLowerCase().includes(q)).slice(0, 8);
+  }, [query, allFoods]);
+
+  const pick = (food) => {
+    setSelected(food);
+    const opts = unitsFor(food);
+    setUnit(opts[0].unit);
+    setQty(1);
+    setQuery("");
+  };
+
+  const allergyHit = selected && patient.allergies && patient.allergies.toLowerCase().split(",").map(s=>s.trim()).filter(Boolean).some(a => selected.name.toLowerCase().includes(a) || (selected.tags||[]).some(t=>t.includes(a)));
+
+  return (
+    <div className="flex flex-col gap-2">
+      {!selected ? (
+        <div className="relative">
+          <div className="flex items-center gap-2" style={{ ...inputStyle(theme) }}>
+            <Search size={14} color={theme.textFaint} />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search a food to add…"
+              style={{ background: "transparent", border: "none", outline: "none", color: theme.text, fontSize: 13.5, width: "100%" }} />
+          </div>
+          {results.length > 0 && (
+            <div className="absolute z-20 mt-1 w-full rounded-xl overflow-hidden" style={{ background: theme.bg2, border: `1px solid ${theme.panelBorder}`, maxHeight: 220, overflowY: "auto" }}>
+              {results.map((r) => (
+                <div key={r.id} onClick={() => pick(r)} className="cursor-pointer flex items-center justify-between px-3 py-2 hover:opacity-80"
+                  style={{ borderBottom: `1px solid ${theme.divider}` }}>
+                  <span style={{ color: theme.text, fontSize: 13 }}>{r.name}</span>
+                  <span style={{ color: theme.textFaint, fontSize: 11, fontFamily: "JetBrains Mono, monospace" }}>{round(r.per100.cal)} kcal/100g</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl" style={{ background: "rgba(127,127,127,0.06)" }}>
+          <span style={{ color: theme.text, fontWeight: 600, fontSize: 13 }}>{selected.name}</span>
+          <input type="number" min="0" step="0.5" value={qty} onChange={(e) => setQty(parseFloat(e.target.value) || 0)}
+            style={{ ...inputStyle(theme), width: 64, padding: "5px 8px" }} />
+          <Select theme={theme} value={unit} onChange={(e) => setUnit(e.target.value)} style={{ width: 100, padding: "5px 8px" }}>
+            {unitsFor(selected).map((o) => <option key={o.unit} value={o.unit}>{o.unit}</option>)}
+          </Select>
+          <span style={{ color: theme.textFaint, fontSize: 11.5, fontFamily: "JetBrains Mono, monospace" }}>
+            ≈ {round(nutrientsFor(selected, gramsFor(selected, qty, unit)).cal)} kcal
+          </span>
+          <Btn theme={theme} small icon={Plus} onClick={() => { onAdd({ uid: Math.random().toString(36).slice(2), foodId: selected.id, qty, unit, override: null }); setSelected(null); }}>Add</Btn>
+          <Btn theme={theme} small variant="ghost" icon={X} onClick={() => setSelected(null)} />
+          {allergyHit && (
+            <div className="flex items-center gap-1 w-full" style={{ color: theme.danger, fontSize: 11.5 }}>
+              <AlertTriangle size={12} /> Possible allergy conflict with patient profile
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================== MEAL ITEM ROW ============================== */
+function MealItemRow({ item, food, theme, onRemove, onEditOverride, foodIndex, patient }) {
+  const [editing, setEditing] = useState(false);
+  const n = itemNutrients(item, foodIndex);
+  const isOverridden = !!item.override;
+  const allergyHit = food && patient.allergies && patient.allergies.toLowerCase().split(",").map(s=>s.trim()).filter(Boolean).some(a => food.name.toLowerCase().includes(a) || (food.tags||[]).some(t=>t.includes(a)));
+
+  return (
+    <div className="flex flex-col gap-1 py-1.5" style={{ borderBottom: `1px dashed ${theme.divider}` }}>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span style={{ color: theme.text, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {food ? food.name : "Custom item"} <span style={{ color: theme.textFaint, fontFamily: "JetBrains Mono, monospace" }}>· {item.qty}{item.unit}</span>
+          </span>
+          {allergyHit && <AlertTriangle size={12} color={theme.danger} title="Allergy conflict" />}
+          {isOverridden && <span style={{ fontSize: 9.5, color: theme.warn, border: `1px solid ${theme.warn}55`, borderRadius: 6, padding: "1px 5px" }}>OVERRIDE</span>}
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <span style={{ color: theme.textMuted, fontSize: 12, fontFamily: "JetBrains Mono, monospace" }}>{round(n.cal)} kcal</span>
+          <Pencil size={12} color={theme.textFaint} style={{ cursor: "pointer" }} onClick={() => setEditing((e) => !e)} />
+          <Trash2 size={12} color={theme.textFaint} style={{ cursor: "pointer" }} onClick={onRemove} />
+        </div>
+      </div>
+      {editing && (
+        <div className="grid grid-cols-4 gap-1.5 mt-1 p-2 rounded-lg" style={{ background: "rgba(127,127,127,0.06)" }}>
+          {["cal", "protein", "carbs", "fat"].map((k) => (
+            <label key={k} className="flex flex-col gap-0.5">
+              <span style={{ fontSize: 9.5, color: theme.textFaint, textTransform: "uppercase" }}>{k}</span>
+              <input type="number" defaultValue={round(n[k], 1)} onBlur={(e) => {
+                const val = parseFloat(e.target.value) || 0;
+                const base = item.override || n;
+                onEditOverride({ ...base, [k]: val });
+              }} style={{ ...inputStyle(theme), padding: "4px 6px", fontSize: 11.5 }} />
+            </label>
+          ))}
+          {isOverridden && <button onClick={() => onEditOverride(null)} style={{ gridColumn: "span 4", fontSize: 10.5, color: theme.accent, textAlign: "left", marginTop: 2 }}>Reset to database value</button>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ============================== MEAL CARD ============================== */
+function MealCard({ slot, items, foodIndex, theme, onAdd, onRemove, onEditOverride, targetCal, patient, mealTime, onTimeChange }) {
+  const totals = mealTotals(items, foodIndex);
+  const diff = totals.cal - targetCal;
+  return (
+    <Panel theme={theme} className="p-4 flex flex-col gap-2.5">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span style={{ fontWeight: 700, fontSize: 14.5, color: theme.text, fontFamily: "Space Grotesk, sans-serif" }}>{slot.label}</span>
+          <input type="time" value={mealTime} onChange={(e) => onTimeChange(e.target.value)}
+            style={{ background: "transparent", border: "none", color: theme.textFaint, fontSize: 11.5, fontFamily: "JetBrains Mono, monospace" }} />
+        </div>
+        {targetCal > 0 && (
+          <span style={{ fontSize: 11, fontFamily: "JetBrains Mono, monospace", color: Math.abs(diff) < 50 ? theme.accent : theme.warn }}>
+            Target {round(targetCal)} · Actual {round(totals.cal)} · {diff >= 0 ? "+" : ""}{round(diff)} kcal
+          </span>
+        )}
+      </div>
+      {items.length > 0 && (
+        <div className="flex flex-col">
+          {items.map((it) => (
+            <MealItemRow key={it.uid} item={it} food={foodIndex[it.foodId]} theme={theme} foodIndex={foodIndex} patient={patient}
+              onRemove={() => onRemove(it.uid)} onEditOverride={(ov) => onEditOverride(it.uid, ov)} />
+          ))}
+        </div>
+      )}
+      <FoodPicker theme={theme} foodIndex={foodIndex} allFoods={Object.values(foodIndex)} onAdd={(item) => onAdd(item)} patient={patient} />
+      <div className="flex gap-3 flex-wrap pt-1">
+        {[["Protein", totals.protein, theme.accent, "g"], ["Carbs", totals.carbs, theme.accent2, "g"], ["Fat", totals.fat, theme.warn, "g"], ["Fibre", totals.fiber, theme.fiber, "g"]].map(([label, val, color]) => (
+          <span key={label} style={{ fontSize: 10.5, color: theme.textMuted, fontFamily: "JetBrains Mono, monospace" }}>
+            <span style={{ color }}>●</span> {label} {round(val, 1)}g
+          </span>
+        ))}
+      </div>
+    </Panel>
+  );
+}
+
+/* ============================== APP ============================== */
+const DEFAULT_PATIENT = {
+  name: "", patientId: "PT-" + Math.floor(1000 + Math.random() * 9000), age: 28, dob: "", gender: "female",
+  height: 165, weight: 70, targetWeight: 62, occupation: "", activityLevel: "moderate",
+  dietaryPreference: "vegetarian", foodPreferences: "", foodDislikes: "", allergies: "", intolerances: "",
+  medicalConditions: "", medications: "", lifestyleNotes: "", sleepHours: 7, waterIntake: 2.5,
+  exerciseFreq: "3-4x/week", exerciseType: "Walking", mealsPerDay: 5, notes: "",
+};
+const DEFAULT_INSTRUCTIONS = [
+  "Drink at least 2.5–3 litres of water daily",
+  "Avoid sugary drinks and packaged juices",
+  "Limit fried and processed foods",
+  "Walk for at least 30 minutes daily",
+  "Follow meal timings as closely as possible",
+];
+
+function App() {
+  const [themeMode, setThemeMode] = useState("dark");
+  const theme = THEMES[themeMode];
+  const [tab, setTab] = useState("dashboard");
+
+  const [clientId, setClientId] = useState(() => genClientId());
+  const [toast, setToast] = useState(null);
+  const [pendingAction, setPendingAction] = useState(null); // { type: 'import'|'new', file? }
+  const fileInputRef = useRef(null);
+
+  const showToast = useCallback((title, detail, type = "success") => {
+    setToast({ title, detail, type });
+  }, []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4200);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const [patient, setPatient] = useState({ ...DEFAULT_PATIENT });
+
+  const [customFoods, setCustomFoods] = useState([]);
+  const allFoods = useMemo(() => [...FOODS_SEED, ...customFoods], [customFoods]);
+  const foodIndex = useMemo(() => Object.fromEntries(allFoods.map((f) => [f.id, f])), [allFoods]);
+
+  const [bmrFormula, setBmrFormula] = useState("mifflin");
+  const [goal, setGoal] = useState("loss");
+  const [bmrOverride, setBmrOverride] = useState(null);
+  const [calorieOverride, setCalorieOverride] = useState(null);
+  const [macroMethod, setMacroMethod] = useState("percentage");
+  const [macroPct, setMacroPct] = useState({ protein: 25, carbs: 45, fat: 30 });
+  const [macroPerKg, setMacroPerKg] = useState({ protein: 1.2, fat: 0.8 });
+  const [macroManual, setMacroManual] = useState({ protein: 90, carbs: 180, fat: 55 });
+  const [microTargets, setMicroTargets] = useState({ fiber: 28, sugar: 30, sodium: 2000 });
+  const [mealPct, setMealPct] = useState({ earlyMorning: 5, breakfast: 20, midMorning: 10, lunch: 30, eveningSnack: 10, dinner: 20, bedtime: 5 });
+  const [mealTimes, setMealTimes] = useState(Object.fromEntries(MEAL_SLOTS.map((m) => [m.key, m.defaultTime])));
+
+  const [week, setWeek] = useState(emptyWeek());
+  const [activeDay, setActiveDay] = useState("Monday");
+  const [instructions, setInstructions] = useState([...DEFAULT_INSTRUCTIONS]);
+
+  const bmi = calcBMI(patient.weight, patient.height);
+  const [wLow, wHigh] = healthyWeightRange(patient.height || 0);
+  const bmrCalc = BMR_FORMULAS[bmrFormula].fn(patient.weight, patient.height, patient.age, patient.gender);
+  const bmr = bmrOverride != null ? bmrOverride : bmrCalc;
+  const activityFactor = ACTIVITY_FACTORS[patient.activityLevel].factor;
+  const tdee = bmr * activityFactor;
+  const goalTarget = tdee + GOALS[goal].adjust;
+  const targetCalories = calorieOverride != null ? calorieOverride : round(goalTarget);
+
+  const macroGrams = useMemo(() => {
+    if (macroMethod === "percentage") {
+      return {
+        protein: round((targetCalories * macroPct.protein / 100) / 4, 1),
+        carbs: round((targetCalories * macroPct.carbs / 100) / 4, 1),
+        fat: round((targetCalories * macroPct.fat / 100) / 9, 1),
+      };
+    }
+    if (macroMethod === "perKg") {
+      const proteinG = round(macroPerKg.protein * patient.weight, 1);
+      const fatG = round(macroPerKg.fat * patient.weight, 1);
+      const remaining = targetCalories - proteinG * 4 - fatG * 9;
+      return { protein: proteinG, fat: fatG, carbs: round(Math.max(remaining, 0) / 4, 1) };
+    }
+    return macroManual;
+  }, [macroMethod, macroPct, macroPerKg, macroManual, targetCalories, patient.weight]);
+
+  const macroCalBreakdown = {
+    protein: macroGrams.protein * 4, carbs: macroGrams.carbs * 4, fat: macroGrams.fat * 9,
+  };
+  const macroCalTotal = macroCalBreakdown.protein + macroCalBreakdown.carbs + macroCalBreakdown.fat;
+
+  const foodIndexAll = foodIndex;
+  const currentDay = week[activeDay];
+  const dToday = dayTotals(currentDay, foodIndexAll);
+  const wTotalsArr = useMemo(() => weekTotals(week, foodIndexAll), [week, foodIndexAll]);
+  const weekAvg = useMemo(() => {
+    const s = sumNutrients(wTotalsArr);
+    const n = DAYS.length;
+    return { cal: s.cal / n, protein: s.protein / n, carbs: s.carbs / n, fat: s.fat / n, fiber: s.fiber / n, sugar: s.sugar / n, sodium: s.sodium / n };
+  }, [wTotalsArr]);
+
+  const updateDay = useCallback((day, fn) => {
+    setWeek((w) => ({ ...w, [day]: fn(w[day]) }));
+  }, []);
+  const addItem = (day, slotKey, item) => updateDay(day, (d) => ({ ...d, [slotKey]: [...d[slotKey], item] }));
+  const removeItem = (day, slotKey, uid) => updateDay(day, (d) => ({ ...d, [slotKey]: d[slotKey].filter((i) => i.uid !== uid) }));
+  const editOverride = (day, slotKey, uid, override) => updateDay(day, (d) => ({ ...d, [slotKey]: d[slotKey].map((i) => i.uid === uid ? { ...i, override } : i) }));
+
+  const copyDay = (from, to) => setWeek((w) => ({
+    ...w,
+    [to]: Object.fromEntries(MEAL_SLOTS.map((m) => [m.key, w[from][m.key].map((it) => ({ ...it, uid: Math.random().toString(36).slice(2) }))])),
+  }));
+
+  const balanceDay = () => {
+    const remaining = targetCalories - dToday.cal;
+    if (remaining < 60) return;
+    const suggestions = [];
+    let left = remaining;
+    const bank = [foodIndex["apple"], foodIndex["almonds"], foodIndex["curd"], foodIndex["banana"]];
+    for (const food of bank) {
+      if (left < 40) break;
+      const grams = food.cat === "nuts" ? 10 : 100;
+      const n = nutrientsFor(food, grams);
+      if (n.cal <= left + 60) { suggestions.push({ food, grams, n }); left -= n.cal; }
+    }
+    if (suggestions.length) {
+      updateDay(activeDay, (d) => ({ ...d, eveningSnack: [...d.eveningSnack, ...suggestions.map((s) => ({ uid: Math.random().toString(36).slice(2), foodId: s.food.id, qty: s.grams, unit: "g", override: null }))] }));
+    }
+  };
+
+  const allergyList = patient.allergies.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const allergyConflicts = useMemo(() => {
+    let count = 0;
+    DAYS.forEach((day) => MEAL_SLOTS.forEach((m) => (week[day][m.key] || []).forEach((it) => {
+      const food = foodIndex[it.foodId];
+      if (food && allergyList.some((a) => food.name.toLowerCase().includes(a) || (food.tags || []).some((t) => t.includes(a)))) count++;
+    })));
+    return count;
+  }, [week, foodIndex, allergyList]);
+
+  /* ============================== CLIENT EXPORT / IMPORT ============================== */
+  const hasUnsavedData = useCallback(() => {
+    const hasWeekItems = DAYS.some((day) => MEAL_SLOTS.some((m) => (week[day][m.key] || []).length > 0));
+    return Boolean((patient.name && patient.name.trim()) || hasWeekItems || customFoods.length > 0);
+  }, [patient, week, customFoods]);
+
+  const applyImportedData = useCallback((parsed) => {
+    const restored = deserializeClient(parsed, {
+      patient: DEFAULT_PATIENT, week: emptyWeek(), activeDay: "Monday", instructions: DEFAULT_INSTRUCTIONS,
+      bmrFormula: "mifflin", goal: "loss", macroMethod: "percentage",
+      macroPct: { protein: 25, carbs: 45, fat: 30 }, macroPerKg: { protein: 1.2, fat: 0.8 },
+      macroManual: { protein: 90, carbs: 180, fat: 55 }, microTargets: { fiber: 28, sugar: 30, sodium: 2000 },
+      mealPct: { earlyMorning: 5, breakfast: 20, midMorning: 10, lunch: 30, eveningSnack: 10, dinner: 20, bedtime: 5 },
+      mealTimes: Object.fromEntries(MEAL_SLOTS.map((m) => [m.key, m.defaultTime])),
+    });
+
+    // Merge the imported client's custom foods and its historical food snapshot into
+    // the CURRENT custom food database rather than replacing it — this preserves any
+    // other custom foods the dietitian has already built up, while guaranteeing this
+    // client's diet resolves correctly even if a food was since edited or removed.
+    const merged = new Map(customFoods.map((f) => [f.id, f]));
+    restored.importedCustomFoods.forEach((f) => { if (f && f.id) merged.set(f.id, f); });
+    Object.values(restored.foodSnapshot || {}).forEach((f) => {
+      if (f && f.id && !FOODS_SEED.some((sf) => sf.id === f.id) && !merged.has(f.id)) merged.set(f.id, f);
+    });
+    const mergedCustomFoods = Array.from(merged.values());
+
+    setClientId(restored.clientId);
+    setPatient(restored.patient);
+    setCustomFoods(mergedCustomFoods);
+    setWeek(restored.week);
+    setActiveDay(restored.activeDay);
+    setInstructions(restored.instructions);
+    setBmrFormula(restored.bmrFormula);
+    setGoal(restored.goal);
+    setBmrOverride(restored.bmrOverride);
+    setCalorieOverride(restored.calorieOverride);
+    setMacroMethod(restored.macroMethod);
+    setMacroPct(restored.macroPct);
+    setMacroPerKg(restored.macroPerKg);
+    setMacroManual(restored.macroManual);
+    setMicroTargets(restored.microTargets);
+    setMealPct(restored.mealPct);
+    setMealTimes(restored.mealTimes);
+    setTab("patient");
+    showToast("Client record imported successfully.", restored.patient.name ? `Loaded ${restored.patient.name}` : undefined);
+  }, [showToast, customFoods]);
+
+  const handleExportClient = useCallback(() => {
+    const payload = serializeClient({
+      clientId, patient, customFoods, week, foodIndex, activeDay, instructions,
+      bmrFormula, goal, bmrOverride, calorieOverride,
+      macroMethod, macroPct, macroPerKg, macroManual, microTargets, mealPct, mealTimes,
+    });
+    const namePart = safeFileName(patient.name) || "Client";
+    const datePart = new Date().toISOString().slice(0, 10);
+    const filename = `${namePart}_${datePart}_DietPlan.json`;
+    downloadJSON(payload, filename);
+    showToast("Client record exported successfully.", `File: ${filename}`);
+  }, [clientId, patient, customFoods, week, foodIndex, activeDay, instructions, bmrFormula, goal, bmrOverride, calorieOverride, macroMethod, macroPct, macroPerKg, macroManual, microTargets, mealPct, mealTimes, showToast]);
+
+  const triggerImportPicker = useCallback(() => {
+    if (hasUnsavedData()) {
+      setPendingAction({ type: "import" });
+    } else {
+      fileInputRef.current && fileInputRef.current.click();
+    }
+  }, [hasUnsavedData]);
+
+  const onFileSelected = useCallback((e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = ""; // allow re-selecting the same file later
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(reader.result);
+      } catch (err) {
+        showToast("Import failed", "This file is not valid JSON.", "error");
+        return;
+      }
+      const result = validateClientFile(parsed);
+      if (!result.ok) {
+        showToast("Import failed", result.error, "error");
+        return;
+      }
+      applyImportedData(result.data);
+    };
+    reader.onerror = () => showToast("Import failed", "Could not read the selected file.", "error");
+    reader.readAsText(file);
+  }, [applyImportedData, showToast]);
+
+  const handleNewClient = useCallback(() => {
+    if (hasUnsavedData()) {
+      setPendingAction({ type: "new" });
+    } else {
+      resetToNewClient();
+    }
+  }, [hasUnsavedData]);
+
+  function resetToNewClient() {
+    setClientId(genClientId());
+    setPatient({ ...DEFAULT_PATIENT, patientId: "PT-" + Math.floor(1000 + Math.random() * 9000) });
+    setWeek(emptyWeek());
+    setActiveDay("Monday");
+    setInstructions([...DEFAULT_INSTRUCTIONS]);
+    setBmrFormula("mifflin");
+    setGoal("loss");
+    setBmrOverride(null);
+    setCalorieOverride(null);
+    setMacroMethod("percentage");
+    setMacroPct({ protein: 25, carbs: 45, fat: 30 });
+    setMacroPerKg({ protein: 1.2, fat: 0.8 });
+    setMacroManual({ protein: 90, carbs: 180, fat: 55 });
+    setMicroTargets({ fiber: 28, sugar: 30, sodium: 2000 });
+    setMealPct({ earlyMorning: 5, breakfast: 20, midMorning: 10, lunch: 30, eveningSnack: 10, dinner: 20, bedtime: 5 });
+    setMealTimes(Object.fromEntries(MEAL_SLOTS.map((m) => [m.key, m.defaultTime])));
+    setTab("patient");
+    // customFoods (the food database) is intentionally left untouched — "New Client" only clears client-specific data.
+  }
+
+  const NAV = [
+    { key: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { key: "patient", label: "Patient Profile", icon: User },
+    { key: "requirements", label: "Requirements", icon: Calculator },
+    { key: "foods", label: "Food Database", icon: Search },
+    { key: "daily", label: "Daily Plan", icon: UtensilsCrossed },
+    { key: "weekly", label: "Weekly Planner", icon: CalendarDays },
+    { key: "chart", label: "Diet Chart", icon: FileText },
+    { key: "analytics", label: "Analytics", icon: BarChart3 },
+  ];
+
+  const macroChartData = [
+    { name: "Protein", value: macroCalBreakdown.protein, color: theme.accent },
+    { name: "Carbs", value: macroCalBreakdown.carbs, color: theme.accent2 },
+    { name: "Fat", value: macroCalBreakdown.fat, color: theme.warn },
+  ];
+  const weeklyBarData = DAYS.map((d, i) => ({ day: d.slice(0, 3), calories: round(wTotalsArr[i].cal) }));
+
+  return (
+    <div style={{ background: theme.bg, minHeight: "100%", color: theme.text, fontFamily: "Inter, sans-serif" }}>
+      <style>{`
+        @import url('${FONT_LINK}');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-thumb { background: ${theme.panelBorder}; border-radius: 8px; }
+        input[type=number]::-webkit-inner-spin-button { opacity: 1; }
+        @media print {
+          .no-print { display: none !important; }
+          .print-area { color: #111 !important; background: #fff !important; }
+        }
+        @keyframes toastIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+      `}</style>
+      <input ref={fileInputRef} type="file" accept="application/json,.json" onChange={onFileSelected} className="no-print" style={{ display: "none" }} />
+      <Toast toast={toast} theme={theme} />
+      {pendingAction && pendingAction.type === "new" && (
+        <ConfirmDialog theme={theme} title="Start a new client?"
+          message="You currently have a client record open. Starting a new client will clear the current patient information and diet plan from the screen (your food database is kept). Make sure you've exported this client first if you want to keep their data."
+          confirmLabel="Start New Client"
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => { resetToNewClient(); setPendingAction(null); }} />
+      )}
+      {pendingAction && pendingAction.type === "import" && (
+        <ConfirmDialog theme={theme} title="Import another client?"
+          message="You currently have a client record open. Importing another file will replace the current patient information and diet plan on screen. Make sure you've exported this client first if you want to keep their data."
+          confirmLabel="Continue"
+          onCancel={() => setPendingAction(null)}
+          onConfirm={() => { setPendingAction(null); fileInputRef.current && fileInputRef.current.click(); }} />
+      )}
+      <div className="flex" style={{ minHeight: "100%" }}>
+        {/* Sidebar */}
+        <div className="no-print flex flex-col shrink-0" style={{ width: 232, borderRight: `1px solid ${theme.divider}`, padding: 18, background: theme.bg2 }}>
+          <div className="flex items-center gap-2 mb-6 px-1">
+            <div style={{ width: 34, height: 34, borderRadius: 10, background: `linear-gradient(135deg, ${theme.accent}, ${theme.accent2})`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Sparkles size={17} color="#06110D" />
+            </div>
+            <div>
+              <div style={{ fontFamily: "Space Grotesk, sans-serif", fontWeight: 700, fontSize: 15, lineHeight: 1.1 }}>NutriCore</div>
+              <div style={{ fontSize: 10, color: theme.textFaint, letterSpacing: 0.5 }}>DIETITIAN OS</div>
+            </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            {NAV.map((n) => {
+              const Icon = n.icon;
+              const active = tab === n.key;
+              return (
+                <button key={n.key} onClick={() => setTab(n.key)} className="flex items-center gap-2.5 text-left transition-all"
+                  style={{ padding: "9px 11px", borderRadius: 10, background: active ? `${theme.accent}18` : "transparent", color: active ? theme.accent : theme.textMuted, fontSize: 13, fontWeight: 600, border: active ? `1px solid ${theme.accent}33` : "1px solid transparent" }}>
+                  <Icon size={15} /> {n.label}
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex flex-col gap-2 pt-5 mt-5" style={{ borderTop: `1px solid ${theme.divider}` }}>
+            <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.8, color: theme.textFaint, padding: "0 2px" }}>CLIENT RECORD</div>
+            <div style={{ fontSize: 10.5, color: theme.textFaint, padding: "0 2px", fontFamily: "JetBrains Mono, monospace" }}>{clientId}</div>
+            <button onClick={handleNewClient} className="flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all" style={{ border: `1px solid ${theme.panelBorder}`, color: theme.textMuted, fontSize: 12, fontWeight: 600 }}>
+              <UserPlus size={13} /> New Client
+            </button>
+            <button onClick={triggerImportPicker} className="flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all" style={{ border: `1px solid ${theme.panelBorder}`, color: theme.textMuted, fontSize: 12, fontWeight: 600 }}>
+              <FolderInput size={13} /> Import Client
+            </button>
+            <button onClick={handleExportClient} className="flex items-center gap-2 px-2.5 py-2 rounded-lg transition-all" style={{ border: `1px solid ${theme.accent}55`, background: `${theme.accent}14`, color: theme.accent, fontSize: 12, fontWeight: 700 }}>
+              <Download size={13} /> Export Client
+            </button>
+            <div style={{ fontSize: 10, color: theme.textFaint, padding: "0 2px", lineHeight: 1.4 }}>Client files save locally to your device — nothing is uploaded.</div>
+          </div>
+
+          <div className="mt-auto flex flex-col gap-2 pt-4">
+            {allergyConflicts > 0 && (
+              <div className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg" style={{ background: `${theme.danger}14`, color: theme.danger, fontSize: 11 }}>
+                <AlertTriangle size={13} /> {allergyConflicts} allergy conflict{allergyConflicts > 1 ? "s" : ""} in plan
+              </div>
+            )}
+            <button onClick={() => setThemeMode(themeMode === "dark" ? "light" : "dark")} className="flex items-center gap-2 px-2.5 py-2 rounded-lg" style={{ border: `1px solid ${theme.panelBorder}`, color: theme.textMuted, fontSize: 12 }}>
+              {themeMode === "dark" ? <Sun size={13} /> : <Moon size={13} />} {themeMode === "dark" ? "Light mode" : "Dark mode"}
+            </button>
+          </div>
+        </div>
+
+        {/* Main */}
+        <div className="flex-1 min-w-0" style={{ padding: "24px 30px" }}>
+          {tab === "dashboard" && (
+            <DashboardTab theme={theme} patient={patient} bmi={bmi} targetCalories={targetCalories} dToday={dToday} weekAvg={weekAvg} setTab={setTab} />
+          )}
+          {tab === "patient" && <PatientTab theme={theme} patient={patient} setPatient={setPatient} />}
+          {tab === "requirements" && (
+            <RequirementsTab theme={theme} patient={patient} bmi={bmi} wLow={wLow} wHigh={wHigh}
+              bmrFormula={bmrFormula} setBmrFormula={setBmrFormula} bmrCalc={bmrCalc} bmr={bmr} bmrOverride={bmrOverride} setBmrOverride={setBmrOverride}
+              activityFactor={activityFactor} tdee={tdee} goal={goal} setGoal={setGoal} targetCalories={targetCalories} calorieOverride={calorieOverride} setCalorieOverride={setCalorieOverride}
+              macroMethod={macroMethod} setMacroMethod={setMacroMethod} macroPct={macroPct} setMacroPct={setMacroPct}
+              macroPerKg={macroPerKg} setMacroPerKg={setMacroPerKg} macroManual={macroManual} setMacroManual={setMacroManual}
+              macroGrams={macroGrams} macroCalBreakdown={macroCalBreakdown} macroCalTotal={macroCalTotal} macroChartData={macroChartData}
+              microTargets={microTargets} setMicroTargets={setMicroTargets} mealPct={mealPct} setMealPct={setMealPct}
+              setPatient={setPatient} />
+          )}
+          {tab === "foods" && <FoodsTab theme={theme} allFoods={allFoods} setCustomFoods={setCustomFoods} customFoods={customFoods} showToast={showToast} />}
+          {tab === "daily" && (
+            <DailyTab theme={theme} activeDay={activeDay} setActiveDay={setActiveDay} week={week} foodIndex={foodIndex}
+              targetCalories={targetCalories} mealPct={mealPct} mealTimes={mealTimes} setMealTimes={setMealTimes}
+              addItem={addItem} removeItem={removeItem} editOverride={editOverride} dToday={dToday} patient={patient}
+              balanceDay={balanceDay} macroGrams={macroGrams} />
+          )}
+          {tab === "weekly" && (
+            <WeeklyTab theme={theme} week={week} foodIndex={foodIndex} setActiveDay={setActiveDay} setTab={setTab}
+              copyDay={copyDay} wTotalsArr={wTotalsArr} targetCalories={targetCalories} setWeek={setWeek} />
+          )}
+          {tab === "chart" && (
+            <ChartTab theme={theme} patient={patient} week={week} foodIndex={foodIndex} targetCalories={targetCalories}
+              macroGrams={macroGrams} weekAvg={weekAvg} instructions={instructions} setInstructions={setInstructions}
+              wTotalsArr={wTotalsArr} />
+          )}
+          {tab === "analytics" && (
+            <AnalyticsTab theme={theme} weeklyBarData={weeklyBarData} macroChartData={macroChartData} targetCalories={targetCalories}
+              wTotalsArr={wTotalsArr} weekAvg={weekAvg} microTargets={microTargets} />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ============================== TABS ============================== */
+function DashboardTab({ theme, patient, bmi, targetCalories, dToday, weekAvg, setTab }) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 26, fontWeight: 700 }}>
+          {patient.name ? `Welcome back — ${patient.name}` : "Welcome to NutriCore"}
+        </h1>
+        <p style={{ color: theme.textMuted, fontSize: 13.5, marginTop: 4 }}>A professional nutrition operating system for clinical dietitians.</p>
+      </div>
+      <div className="grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+        <Panel theme={theme} className="p-5 flex flex-col items-center">
+          <NutrientRing value={dToday.cal} target={targetCalories} color={theme.accent} label="Today's Calories" unit=" kcal" theme={theme} size={160} />
+        </Panel>
+        <Panel theme={theme} className="p-5 flex flex-col gap-3 justify-center">
+          <Stat label="BMI" value={bmi ? round(bmi, 1) : "—"} sub={bmiCategory(bmi)} theme={theme} icon={Flame} />
+          <Stat label="Weekly Avg Calories" value={round(weekAvg.cal)} sub="kcal / day" theme={theme} icon={BarChart3} />
+        </Panel>
+        <Panel theme={theme} className="p-5 flex flex-col gap-3 justify-center">
+          <Stat label="Target Calories" value={round(targetCalories)} sub="kcal / day" theme={theme} icon={Calculator} />
+          <Stat label="Meals / Day" value={patient.mealsPerDay} sub="preferred" theme={theme} icon={UtensilsCrossed} />
+        </Panel>
+      </div>
+      <Panel theme={theme} className="p-5">
+        <div style={{ fontWeight: 700, marginBottom: 12, fontFamily: "Space Grotesk, sans-serif" }}>Quick actions</div>
+        <div className="flex flex-wrap gap-2.5">
+          <Btn theme={theme} icon={User} onClick={() => setTab("patient")}>Edit Patient</Btn>
+          <Btn theme={theme} variant="ghost" icon={Calculator} onClick={() => setTab("requirements")}>Requirements</Btn>
+          <Btn theme={theme} variant="ghost" icon={UtensilsCrossed} onClick={() => setTab("daily")}>Build Meals</Btn>
+          <Btn theme={theme} variant="ghost" icon={CalendarDays} onClick={() => setTab("weekly")}>Weekly Planner</Btn>
+          <Btn theme={theme} variant="ghost" icon={FileText} onClick={() => setTab("chart")}>Generate Diet Chart</Btn>
+        </div>
+      </Panel>
+    </div>
+  );
+}
+function Stat({ label, value, sub, theme, icon: Icon }) {
+  return (
+    <div className="flex items-center gap-3">
+      <div style={{ width: 38, height: 38, borderRadius: 10, background: `${theme.accent}14`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+        <Icon size={17} color={theme.accent} />
+      </div>
+      <div>
+        <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "Space Grotesk, sans-serif" }}>{value}</div>
+        <div style={{ fontSize: 11, color: theme.textFaint }}>{label} {sub && `· ${sub}`}</div>
+      </div>
+    </div>
+  );
+}
+
+function PatientTab({ theme, patient, setPatient }) {
+  const set = (k) => (e) => setPatient((p) => ({ ...p, [k]: e.target && e.target.type === "number" ? parseFloat(e.target.value) || 0 : (e.target ? e.target.value : e) }));
+  return (
+    <div className="flex flex-col gap-5 max-w-4xl">
+      <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Patient / Client Profile</h1>
+      <Panel theme={theme} className="p-5 grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))" }}>
+        <Field theme={theme} label="Patient Name"><TextInput theme={theme} value={patient.name} onChange={set("name")} placeholder="Full name" /></Field>
+        <Field theme={theme} label="Patient ID"><TextInput theme={theme} value={patient.patientId} onChange={set("patientId")} /></Field>
+        <Field theme={theme} label="Age"><TextInput theme={theme} type="number" value={patient.age} onChange={set("age")} /></Field>
+        <Field theme={theme} label="Date of Birth"><TextInput theme={theme} type="date" value={patient.dob} onChange={set("dob")} /></Field>
+        <Field theme={theme} label="Gender">
+          <Select theme={theme} value={patient.gender} onChange={set("gender")}>
+            <option value="female">Female</option><option value="male">Male</option><option value="other">Other</option>
+          </Select>
+        </Field>
+        <Field theme={theme} label="Height (cm)"><TextInput theme={theme} type="number" value={patient.height} onChange={set("height")} /></Field>
+        <Field theme={theme} label="Weight (kg)"><TextInput theme={theme} type="number" value={patient.weight} onChange={set("weight")} /></Field>
+        <Field theme={theme} label="Target Weight (kg)"><TextInput theme={theme} type="number" value={patient.targetWeight} onChange={set("targetWeight")} /></Field>
+        <Field theme={theme} label="Occupation"><TextInput theme={theme} value={patient.occupation} onChange={set("occupation")} /></Field>
+        <Field theme={theme} label="Activity Level">
+          <Select theme={theme} value={patient.activityLevel} onChange={set("activityLevel")}>
+            {Object.entries(ACTIVITY_FACTORS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </Select>
+        </Field>
+        <Field theme={theme} label="Dietary Preference">
+          <Select theme={theme} value={patient.dietaryPreference} onChange={set("dietaryPreference")}>
+            <option>Vegetarian</option><option>Vegan</option><option>Eggetarian</option><option>Non-Vegetarian</option><option>Jain</option>
+          </Select>
+        </Field>
+        <Field theme={theme} label="Meals Preferred / Day"><TextInput theme={theme} type="number" value={patient.mealsPerDay} onChange={set("mealsPerDay")} /></Field>
+        <Field theme={theme} label="Sleep Duration (hrs)"><TextInput theme={theme} type="number" value={patient.sleepHours} onChange={set("sleepHours")} /></Field>
+        <Field theme={theme} label="Water Intake (L)"><TextInput theme={theme} type="number" step="0.1" value={patient.waterIntake} onChange={set("waterIntake")} /></Field>
+        <Field theme={theme} label="Exercise Frequency"><TextInput theme={theme} value={patient.exerciseFreq} onChange={set("exerciseFreq")} /></Field>
+        <Field theme={theme} label="Exercise Type"><TextInput theme={theme} value={patient.exerciseType} onChange={set("exerciseType")} /></Field>
+      </Panel>
+      <Panel theme={theme} className="p-5 grid gap-4" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(220px,1fr))" }}>
+        <Field theme={theme} label="Food Preferences" hint="Foods the patient enjoys"><TextInput theme={theme} value={patient.foodPreferences} onChange={set("foodPreferences")} /></Field>
+        <Field theme={theme} label="Food Dislikes"><TextInput theme={theme} value={patient.foodDislikes} onChange={set("foodDislikes")} /></Field>
+        <Field theme={theme} label="Allergies" hint="Comma-separated, used for allergy warnings"><TextInput theme={theme} value={patient.allergies} onChange={set("allergies")} placeholder="e.g. peanuts, shellfish" /></Field>
+        <Field theme={theme} label="Intolerances"><TextInput theme={theme} value={patient.intolerances} onChange={set("intolerances")} placeholder="e.g. lactose, gluten" /></Field>
+        <Field theme={theme} label="Medical Conditions"><TextInput theme={theme} value={patient.medicalConditions} onChange={set("medicalConditions")} /></Field>
+        <Field theme={theme} label="Medications"><TextInput theme={theme} value={patient.medications} onChange={set("medications")} /></Field>
+      </Panel>
+      <Panel theme={theme} className="p-5">
+        <Field theme={theme} label="Lifestyle Notes / Custom Notes">
+          <textarea value={patient.lifestyleNotes} onChange={set("lifestyleNotes")} rows={4} style={{ ...inputStyle(theme), resize: "vertical" }} />
+        </Field>
+      </Panel>
+    </div>
+  );
+}
+
+function RequirementsTab(props) {
+  const { theme, patient, bmi, wLow, wHigh, bmrFormula, setBmrFormula, bmrCalc, bmr, bmrOverride, setBmrOverride,
+    activityFactor, tdee, goal, setGoal, targetCalories, calorieOverride, setCalorieOverride,
+    macroMethod, setMacroMethod, macroPct, setMacroPct, macroPerKg, setMacroPerKg, macroManual, setMacroManual,
+    macroGrams, macroCalBreakdown, macroCalTotal, macroChartData, microTargets, setMicroTargets, mealPct, setMealPct } = props;
+
+  return (
+    <div className="flex flex-col gap-5">
+      <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Nutrition Requirements Calculator</h1>
+
+      <div className="grid gap-4" style={{ gridTemplateColumns: "1fr 1fr" }}>
+        <Panel theme={theme} className="p-5">
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>Body Mass Index</div>
+          <div className="flex items-center gap-6">
+            <div>
+              <div style={{ fontSize: 34, fontWeight: 700, fontFamily: "Space Grotesk, sans-serif", color: theme.accent }}>{bmi ? round(bmi, 1) : "—"}</div>
+              <div style={{ fontSize: 12, color: theme.textMuted }}>{bmiCategory(bmi)}</div>
+            </div>
+            <div style={{ fontSize: 12, color: theme.textFaint, lineHeight: 1.6 }}>
+              Healthy BMI range: 18.5 – 24.9<br />
+              Healthy weight range for {patient.height}cm: <span style={{ color: theme.text }}>{wLow} – {wHigh} kg</span>
+            </div>
+          </div>
+        </Panel>
+        <Panel theme={theme} className="p-5">
+          <div style={{ fontWeight: 700, marginBottom: 10 }}>BMR Formula</div>
+          <Select theme={theme} value={bmrFormula} onChange={(e) => setBmrFormula(e.target.value)}>
+            {Object.entries(BMR_FORMULAS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </Select>
+          <div className="flex items-center justify-between mt-3">
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 700, fontFamily: "Space Grotesk, sans-serif" }}>{round(bmr)} <span style={{ fontSize: 12, color: theme.textFaint }}>kcal BMR</span></div>
+              {bmrOverride != null && <span style={{ fontSize: 10, color: theme.warn }}>Manually overridden (calculated: {round(bmrCalc)})</span>}
+            </div>
+            <OverrideInput theme={theme} value={bmrOverride} onChange={setBmrOverride} placeholder={round(bmrCalc)} />
+          </div>
+        </Panel>
+      </div>
+
+      <Panel theme={theme} className="p-5">
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Energy Requirement</div>
+        <div className="flex items-center gap-2 flex-wrap" style={{ fontSize: 13, color: theme.textMuted }}>
+          <span style={{ color: theme.text, fontWeight: 600 }}>{round(bmr)}</span> BMR
+          <span>×</span>
+          <span style={{ color: theme.text, fontWeight: 600 }}>{activityFactor}</span> Activity Factor ({ACTIVITY_FACTORS[patient.activityLevel].label})
+          <span>=</span>
+          <span style={{ color: theme.accent, fontWeight: 700 }}>{round(tdee)} kcal TDEE</span>
+        </div>
+        <div className="flex flex-wrap gap-2 mt-4">
+          {Object.entries(GOALS).map(([k, v]) => <Pill key={k} theme={theme} active={goal === k} onClick={() => setGoal(k)}>{v.label}</Pill>)}
+        </div>
+        <div className="flex items-center gap-3 mt-4">
+          <div>
+            <div style={{ fontSize: 30, fontWeight: 700, fontFamily: "Space Grotesk, sans-serif", color: theme.accent }}>{round(targetCalories)} kcal</div>
+            <div style={{ fontSize: 11, color: theme.textFaint }}>Target daily calorie intake</div>
+          </div>
+          <OverrideInput theme={theme} value={calorieOverride} onChange={setCalorieOverride} placeholder={round(goalTargetSafe(tdee, goal))} />
+        </div>
+      </Panel>
+
+      <Panel theme={theme} className="p-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 mb-3">
+          <div style={{ fontWeight: 700 }}>Macronutrient Calculator</div>
+          <div className="flex gap-2">
+            <Pill theme={theme} active={macroMethod === "percentage"} onClick={() => setMacroMethod("percentage")}>% Method</Pill>
+            <Pill theme={theme} active={macroMethod === "perKg"} onClick={() => setMacroMethod("perKg")}>g/kg Method</Pill>
+            <Pill theme={theme} active={macroMethod === "manual"} onClick={() => setMacroMethod("manual")}>Manual</Pill>
+          </div>
+        </div>
+        <div className="grid gap-5" style={{ gridTemplateColumns: "1.3fr 1fr" }}>
+          <div>
+            {macroMethod === "percentage" && (
+              <div className="grid grid-cols-3 gap-3">
+                {["protein", "carbs", "fat"].map((k) => (
+                  <Field key={k} theme={theme} label={`${k} %`}>
+                    <TextInput theme={theme} type="number" value={macroPct[k]} onChange={(e) => setMacroPct((p) => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))} />
+                  </Field>
+                ))}
+                <div style={{ gridColumn: "span 3", fontSize: 11, color: (macroPct.protein + macroPct.carbs + macroPct.fat) !== 100 ? theme.warn : theme.textFaint }}>
+                  Total: {macroPct.protein + macroPct.carbs + macroPct.fat}% {(macroPct.protein + macroPct.carbs + macroPct.fat) !== 100 && "(should total 100%)"}
+                </div>
+              </div>
+            )}
+            {macroMethod === "perKg" && (
+              <div className="grid grid-cols-2 gap-3">
+                <Field theme={theme} label="Protein g/kg"><TextInput theme={theme} type="number" step="0.1" value={macroPerKg.protein} onChange={(e) => setMacroPerKg((p) => ({ ...p, protein: parseFloat(e.target.value) || 0 }))} /></Field>
+                <Field theme={theme} label="Fat g/kg"><TextInput theme={theme} type="number" step="0.1" value={macroPerKg.fat} onChange={(e) => setMacroPerKg((p) => ({ ...p, fat: parseFloat(e.target.value) || 0 }))} /></Field>
+                <div style={{ gridColumn: "span 2", fontSize: 11, color: theme.textFaint }}>Carbohydrates fill remaining calories automatically.</div>
+              </div>
+            )}
+            {macroMethod === "manual" && (
+              <div className="grid grid-cols-3 gap-3">
+                {["protein", "carbs", "fat"].map((k) => (
+                  <Field key={k} theme={theme} label={`${k} (g)`}>
+                    <TextInput theme={theme} type="number" value={macroManual[k]} onChange={(e) => setMacroManual((p) => ({ ...p, [k]: parseFloat(e.target.value) || 0 }))} />
+                  </Field>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-5 mt-5">
+              {["protein", "carbs", "fat"].map((k) => (
+                <div key={k}>
+                  <div style={{ fontSize: 18, fontWeight: 700, fontFamily: "Space Grotesk, sans-serif", color: k === "protein" ? theme.accent : k === "carbs" ? theme.accent2 : theme.warn }}>{round(macroGrams[k], 1)}g</div>
+                  <div style={{ fontSize: 10.5, color: theme.textFaint, textTransform: "capitalize" }}>{k} · {round(macroCalBreakdown[k])} kcal · {macroCalTotal ? round((macroCalBreakdown[k] / macroCalTotal) * 100) : 0}%</div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div style={{ height: 190 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={macroChartData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                  {macroChartData.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: theme.bg2, border: `1px solid ${theme.panelBorder}`, borderRadius: 8, fontSize: 12 }} />
+                <Legend wrapperStyle={{ fontSize: 11 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </Panel>
+
+      <Panel theme={theme} className="p-5">
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Additional Nutrient Targets</div>
+        <div className="grid grid-cols-3 gap-3">
+          {Object.entries(microTargets).map(([k, v]) => (
+            <Field key={k} theme={theme} label={`${k} target ${k === "sodium" ? "(mg)" : "(g)"}`}>
+              <TextInput theme={theme} type="number" value={v} onChange={(e) => setMicroTargets((m) => ({ ...m, [k]: parseFloat(e.target.value) || 0 }))} />
+            </Field>
+          ))}
+        </div>
+      </Panel>
+
+      <Panel theme={theme} className="p-5">
+        <div style={{ fontWeight: 700, marginBottom: 10 }}>Meal Calorie Distribution</div>
+        <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fit,minmax(130px,1fr))" }}>
+          {MEAL_SLOTS.map((m) => (
+            <Field key={m.key} theme={theme} label={`${m.label} %`}>
+              <TextInput theme={theme} type="number" value={mealPct[m.key]} onChange={(e) => setMealPct((p) => ({ ...p, [m.key]: parseFloat(e.target.value) || 0 }))} />
+              <span style={{ fontSize: 10.5, color: theme.textFaint }}>{round((mealPct[m.key] / 100) * targetCalories)} kcal</span>
+            </Field>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: Object.values(mealPct).reduce((a, b) => a + b, 0) !== 100 ? theme.warn : theme.textFaint, marginTop: 8 }}>
+          Total: {Object.values(mealPct).reduce((a, b) => a + b, 0)}%
+        </div>
+      </Panel>
+    </div>
+  );
+}
+function goalTargetSafe(tdee, goal) { return tdee + GOALS[goal].adjust; }
+function OverrideInput({ theme, value, onChange, placeholder }) {
+  return (
+    <div className="flex items-center gap-1.5">
+      <TextInput theme={theme} type="number" placeholder={String(placeholder)} value={value == null ? "" : value}
+        onChange={(e) => onChange(e.target.value === "" ? null : parseFloat(e.target.value))}
+        style={{ width: 100 }} />
+      {value != null && <RotateCcw size={13} color={theme.textFaint} style={{ cursor: "pointer" }} onClick={() => onChange(null)} />}
+    </div>
+  );
+}
+
+function FoodsTab({ theme, allFoods, setCustomFoods, customFoods, showToast }) {
+  const [query, setQuery] = useState("");
+  const [cat, setCat] = useState("all");
+  const [diet, setDiet] = useState("all");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: "", cal: "", protein: "", carbs: "", fat: "", fiber: "" });
+  const dbFileInputRef = useRef(null);
+
+  const exportFoodDatabase = () => {
+    const payload = {
+      application: APP_NAME, exportType: "foodDatabase", version: APP_VERSION,
+      schemaVersion: SCHEMA_VERSION, exportDate: new Date().toISOString(), customFoods,
+    };
+    downloadJSON(payload, `NutriCore_FoodDatabase_${new Date().toISOString().slice(0, 10)}.json`);
+    showToast && showToast("Food database exported successfully.", `${customFoods.length} custom food${customFoods.length === 1 ? "" : "s"} saved`);
+  };
+  const onDbFileSelected = (e) => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        const parsed = JSON.parse(reader.result);
+        if (parsed.application !== APP_NAME || parsed.exportType !== "foodDatabase" || !Array.isArray(parsed.customFoods)) {
+          showToast && showToast("Import failed", "This is not a valid NutriCore food database file.", "error");
+          return;
+        }
+        setCustomFoods((c) => {
+          const merged = new Map(c.map((f) => [f.id, f]));
+          parsed.customFoods.forEach((f) => { if (f && f.id) merged.set(f.id, f); });
+          return Array.from(merged.values());
+        });
+        showToast && showToast("Food database imported successfully.", `${parsed.customFoods.length} custom food${parsed.customFoods.length === 1 ? "" : "s"} merged in`);
+      } catch (err) {
+        showToast && showToast("Import failed", "This file is not valid JSON.", "error");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const filtered = allFoods.filter((f) =>
+    (query === "" || f.name.toLowerCase().includes(query.toLowerCase())) &&
+    (cat === "all" || f.cat === cat) &&
+    (diet === "all" || f.diet === diet)
+  );
+
+  const addCustom = () => {
+    if (!form.name || !form.cal) return;
+    const id = "custom_" + Math.random().toString(36).slice(2);
+    setCustomFoods((c) => [...c, f(id, form.name, "snack", "Custom", "veg", parseFloat(form.cal) || 0, parseFloat(form.protein) || 0, parseFloat(form.carbs) || 0, parseFloat(form.fat) || 0, parseFloat(form.fiber) || 0)]);
+    setForm({ name: "", cal: "", protein: "", carbs: "", fat: "", fiber: "" });
+    setShowAdd(false);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Food Database <span style={{ fontSize: 13, color: theme.textFaint, fontWeight: 400 }}>· {allFoods.length} items</span></h1>
+        <div className="flex items-center gap-2">
+          <input ref={dbFileInputRef} type="file" accept="application/json,.json" onChange={onDbFileSelected} style={{ display: "none" }} />
+          <Btn theme={theme} small variant="ghost" icon={Upload} onClick={() => dbFileInputRef.current && dbFileInputRef.current.click()}>Import Foods</Btn>
+          <Btn theme={theme} small variant="ghost" icon={Download} onClick={exportFoodDatabase}>Export Foods</Btn>
+          <Btn theme={theme} icon={Plus} onClick={() => setShowAdd((s) => !s)}>Add Custom Food</Btn>
+        </div>
+      </div>
+      {showAdd && (
+        <Panel theme={theme} className="p-4 grid gap-3" style={{ gridTemplateColumns: "repeat(6,1fr)" }}>
+          <TextInput theme={theme} placeholder="Food name" value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} />
+          <TextInput theme={theme} placeholder="Calories/100g" type="number" value={form.cal} onChange={(e) => setForm((s) => ({ ...s, cal: e.target.value }))} />
+          <TextInput theme={theme} placeholder="Protein" type="number" value={form.protein} onChange={(e) => setForm((s) => ({ ...s, protein: e.target.value }))} />
+          <TextInput theme={theme} placeholder="Carbs" type="number" value={form.carbs} onChange={(e) => setForm((s) => ({ ...s, carbs: e.target.value }))} />
+          <TextInput theme={theme} placeholder="Fat" type="number" value={form.fat} onChange={(e) => setForm((s) => ({ ...s, fat: e.target.value }))} />
+          <TextInput theme={theme} placeholder="Fibre" type="number" value={form.fiber} onChange={(e) => setForm((s) => ({ ...s, fiber: e.target.value }))} />
+          <Btn theme={theme} small style={{ gridColumn: "span 2" }} icon={Check} onClick={addCustom}>Save to my database</Btn>
+        </Panel>
+      )}
+      <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center gap-2 flex-1" style={{ ...inputStyle(theme), minWidth: 220 }}>
+          <Search size={14} color={theme.textFaint} />
+          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search foods…" style={{ background: "transparent", border: "none", outline: "none", color: theme.text, width: "100%", fontSize: 13.5 }} />
+        </div>
+      </div>
+      <div className="flex gap-1.5 flex-wrap">
+        <Pill theme={theme} active={cat === "all"} onClick={() => setCat("all")}>All Categories</Pill>
+        {Object.entries(CAT_LABEL).map(([k, v]) => <Pill key={k} theme={theme} active={cat === k} onClick={() => setCat(k)}>{v}</Pill>)}
+      </div>
+      <div className="flex gap-1.5 flex-wrap">
+        {["all", "vegan", "veg", "egg", "nonveg"].map((d) => (
+          <Pill key={d} theme={theme} color={theme.accent2} active={diet === d} onClick={() => setDiet(d)}>{d === "all" ? "All Diets" : d}</Pill>
+        ))}
+      </div>
+      <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill,minmax(260px,1fr))" }}>
+        {filtered.map((f) => <FoodCard key={f.id} f={f} theme={theme} />)}
+      </div>
+      {filtered.length === 0 && <div style={{ color: theme.textFaint, fontSize: 13, padding: 20, textAlign: "center" }}>No foods match your filters.</div>}
+    </div>
+  );
+}
+function FoodCard({ f, theme }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Panel theme={theme} className="p-3.5">
+      <div className="flex items-center justify-between cursor-pointer" onClick={() => setOpen((o) => !o)}>
+        <div>
+          <div style={{ fontWeight: 600, fontSize: 13.5 }}>{f.name}</div>
+          <div style={{ fontSize: 10.5, color: theme.textFaint }}>{CAT_LABEL[f.cat] || f.cat} · {f.region} · {f.diet}</div>
+        </div>
+        <div className="flex items-center gap-2">
+          <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, color: theme.accent }}>{round(f.per100.cal)} kcal</span>
+          {open ? <ChevronDown size={14} color={theme.textFaint} /> : <ChevronRight size={14} color={theme.textFaint} />}
+        </div>
+      </div>
+      {open && (
+        <div className="grid grid-cols-4 gap-2 mt-3 pt-3" style={{ borderTop: `1px solid ${theme.divider}` }}>
+          {[["Protein", f.per100.protein], ["Carbs", f.per100.carbs], ["Fat", f.per100.fat], ["Fibre", f.per100.fiber]].map(([l, v]) => (
+            <div key={l}><div style={{ fontSize: 13, fontWeight: 600 }}>{v}g</div><div style={{ fontSize: 9.5, color: theme.textFaint }}>{l}/100g</div></div>
+          ))}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function DailyTab({ theme, activeDay, setActiveDay, week, foodIndex, targetCalories, mealPct, mealTimes, setMealTimes, addItem, removeItem, editOverride, dToday, patient, balanceDay, macroGrams }) {
+  const day = week[activeDay];
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Meal Builder</h1>
+        <div className="flex gap-1.5 flex-wrap">
+          {DAYS.map((d) => <Pill key={d} theme={theme} active={activeDay === d} onClick={() => setActiveDay(d)}>{d.slice(0, 3)}</Pill>)}
+        </div>
+      </div>
+
+      <div className="grid gap-4" style={{ gridTemplateColumns: "260px 1fr" }}>
+        <div className="flex flex-col gap-3">
+          <Panel theme={theme} className="p-4 flex flex-col items-center">
+            <NutrientRing value={dToday.cal} target={targetCalories} color={theme.accent} label="Calories" unit="kcal" theme={theme} size={160} />
+            <Btn theme={theme} small variant="soft" icon={Sparkles} style={{ marginTop: 10 }} onClick={balanceDay}>Balance Day</Btn>
+          </Panel>
+          <Panel theme={theme} className="p-4 flex flex-col gap-2.5">
+            {[["Protein", dToday.protein, macroGrams.protein, theme.accent], ["Carbs", dToday.carbs, macroGrams.carbs, theme.accent2], ["Fat", dToday.fat, macroGrams.fat, theme.warn]].map(([l, v, t, c]) => (
+              <div key={l}>
+                <div className="flex justify-between" style={{ fontSize: 11.5, marginBottom: 3 }}>
+                  <span style={{ color: theme.textMuted }}>{l}</span><span style={{ fontFamily: "JetBrains Mono, monospace" }}>{round(v, 1)} / {round(t, 1)}g</span>
+                </div>
+                <MiniBar value={v} target={t} color={c} theme={theme} />
+              </div>
+            ))}
+            <div className="flex justify-between" style={{ fontSize: 11.5, marginTop: 4 }}>
+              <span style={{ color: theme.textMuted }}>Fibre</span><span style={{ fontFamily: "JetBrains Mono, monospace" }}>{round(dToday.fiber, 1)}g</span>
+            </div>
+          </Panel>
+        </div>
+        <div className="flex flex-col gap-3">
+          {MEAL_SLOTS.map((slot) => (
+            <MealCard key={slot.key} slot={slot} items={day[slot.key]} foodIndex={foodIndex} theme={theme}
+              targetCal={(mealPct[slot.key] / 100) * targetCalories} patient={patient}
+              mealTime={mealTimes[slot.key]} onTimeChange={(v) => setMealTimes((t) => ({ ...t, [slot.key]: v }))}
+              onAdd={(item) => addItem(activeDay, slot.key, item)}
+              onRemove={(uid) => removeItem(activeDay, slot.key, uid)}
+              onEditOverride={(uid, ov) => editOverride(activeDay, slot.key, uid, ov)} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WeeklyTab({ theme, week, foodIndex, setActiveDay, setTab, copyDay, wTotalsArr, targetCalories, setWeek }) {
+  const [copyFrom, setCopyFrom] = useState("Monday");
+  const [copyTo, setCopyTo] = useState("Tuesday");
+  const clearDay = (day) => setWeek((w) => ({ ...w, [day]: emptyDay() }));
+
+  return (
+    <div className="flex flex-col gap-5">
+      <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Weekly Diet Planner</h1>
+
+      <Panel theme={theme} className="p-4 flex flex-wrap items-center gap-2.5">
+        <span style={{ fontSize: 12.5, color: theme.textMuted }}>Copy</span>
+        <Select theme={theme} value={copyFrom} onChange={(e) => setCopyFrom(e.target.value)} style={{ width: 130 }}>{DAYS.map((d) => <option key={d}>{d}</option>)}</Select>
+        <span style={{ fontSize: 12.5, color: theme.textMuted }}>to</span>
+        <Select theme={theme} value={copyTo} onChange={(e) => setCopyTo(e.target.value)} style={{ width: 130 }}>{DAYS.map((d) => <option key={d}>{d}</option>)}</Select>
+        <Btn theme={theme} small icon={Copy} onClick={() => copyDay(copyFrom, copyTo)}>Copy Day</Btn>
+      </Panel>
+
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ display: "grid", gridTemplateColumns: `120px repeat(${DAYS.length}, minmax(150px,1fr))`, gap: 6, minWidth: 900 }}>
+          <div />
+          {DAYS.map((d) => (
+            <div key={d} className="flex items-center justify-between px-1">
+              <span style={{ fontSize: 12, fontWeight: 700 }}>{d.slice(0, 3)}</span>
+              <Trash2 size={12} color={theme.textFaint} style={{ cursor: "pointer" }} onClick={() => clearDay(d)} />
+            </div>
+          ))}
+          {MEAL_SLOTS.map((slot) => (
+            <React.Fragment key={slot.key}>
+              <div style={{ fontSize: 11.5, color: theme.textMuted, alignSelf: "start", paddingTop: 8 }}>{slot.label}</div>
+              {DAYS.map((d) => {
+                const items = week[d][slot.key];
+                return (
+                  <div key={d} onClick={() => { setActiveDay(d); setTab("daily"); }} className="cursor-pointer p-2 rounded-lg"
+                    style={{ background: theme.panel, border: `1px solid ${theme.panelBorder}`, minHeight: 46, fontSize: 11 }}>
+                    {items.length === 0 ? <span style={{ color: theme.textFaint }}>+ add</span> : items.map((it) => (
+                      <div key={it.uid} style={{ color: theme.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {(foodIndex[it.foodId] || {}).name || "item"} <span style={{ color: theme.textFaint }}>({it.qty}{it.unit})</span>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+          <div style={{ fontSize: 11.5, fontWeight: 700, alignSelf: "center" }}>Total</div>
+          {DAYS.map((d, i) => (
+            <div key={d} className="p-2 rounded-lg text-center" style={{ background: `${theme.accent}10`, border: `1px solid ${theme.accent}33` }}>
+              <div style={{ fontWeight: 700, fontFamily: "JetBrains Mono, monospace", color: theme.accent, fontSize: 13 }}>{round(wTotalsArr[i].cal)} kcal</div>
+              <div style={{ fontSize: 9.5, color: wTotalsArr[i].cal > targetCalories + 100 || wTotalsArr[i].cal < targetCalories - 100 ? theme.warn : theme.textFaint }}>
+                target {round(targetCalories)}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChartTab({ theme, patient, week, foodIndex, targetCalories, macroGrams, weekAvg, instructions, setInstructions, wTotalsArr }) {
+  const [newInstr, setNewInstr] = useState("");
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="no-print flex items-center justify-between flex-wrap gap-3">
+        <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Diet Chart & Export</h1>
+        <Btn theme={theme} icon={Printer} onClick={() => window.print()}>Print / Export PDF</Btn>
+      </div>
+
+      <Panel theme={theme} className="no-print p-4">
+        <div style={{ fontWeight: 700, marginBottom: 8, fontSize: 13 }}>Patient Instructions</div>
+        <div className="flex flex-col gap-1.5 mb-2">
+          {instructions.map((ins, i) => (
+            <div key={i} className="flex items-center justify-between" style={{ fontSize: 12.5, color: theme.textMuted }}>
+              <span>• {ins}</span>
+              <X size={12} style={{ cursor: "pointer" }} onClick={() => setInstructions((l) => l.filter((_, j) => j !== i))} />
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <TextInput theme={theme} value={newInstr} onChange={(e) => setNewInstr(e.target.value)} placeholder="Add instruction…" />
+          <Btn theme={theme} small icon={Plus} onClick={() => { if (newInstr.trim()) { setInstructions((l) => [...l, newInstr.trim()]); setNewInstr(""); } }}>Add</Btn>
+        </div>
+      </Panel>
+
+      <Panel theme={theme} className="print-area p-7" style={{ background: theme.bg2 }}>
+        <div className="flex items-center justify-between flex-wrap gap-3 pb-4" style={{ borderBottom: `2px solid ${theme.accent}` }}>
+          <div>
+            <div style={{ fontSize: 20, fontWeight: 700, fontFamily: "Space Grotesk, sans-serif" }}>NutriCore Clinical Nutrition</div>
+            <div style={{ fontSize: 11, color: theme.textFaint }}>Personalised Diet Chart · Generated {new Date().toLocaleDateString()}</div>
+          </div>
+          <div style={{ textAlign: "right", fontSize: 12 }}>
+            <div><b>{patient.name || "Unnamed Patient"}</b> · {patient.patientId}</div>
+            <div style={{ color: theme.textFaint }}>{patient.age} yrs · {patient.gender} · {patient.height}cm · {patient.weight}kg</div>
+            <div style={{ color: theme.textFaint }}>Target: {round(targetCalories)} kcal/day · Goal: weight management</div>
+          </div>
+        </div>
+
+        {DAYS.map((day, di) => {
+          const d = week[day];
+          const totals = wTotalsArr[di];
+          const hasItems = MEAL_SLOTS.some((m) => d[m.key].length > 0);
+          return (
+            <div key={day} style={{ marginTop: 20, breakInside: "avoid" }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: theme.accent, marginBottom: 6 }}>{day}</div>
+              {!hasItems ? <div style={{ fontSize: 11.5, color: theme.textFaint }}>No meals planned yet.</div> : (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11.5 }}>
+                  <thead>
+                    <tr style={{ borderBottom: `1px solid ${theme.divider}`, color: theme.textFaint, textAlign: "left" }}>
+                      <th style={{ padding: "4px 6px" }}>Meal</th><th>Food</th><th>Qty</th><th>Calories</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MEAL_SLOTS.map((m) => d[m.key].map((it, idx) => {
+                      const n = itemNutrients(it, foodIndex);
+                      return (
+                        <tr key={it.uid} style={{ borderBottom: `1px solid ${theme.divider}` }}>
+                          <td style={{ padding: "3px 6px", color: theme.textFaint }}>{idx === 0 ? `${m.label}` : ""}</td>
+                          <td>{(foodIndex[it.foodId] || {}).name || "Custom item"}</td>
+                          <td>{it.qty}{it.unit}</td>
+                          <td>{round(n.cal)} kcal</td>
+                        </tr>
+                      );
+                    }))}
+                  </tbody>
+                </table>
+              )}
+              <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 4 }}>
+                Total: {round(totals.cal)} kcal · P {round(totals.protein)}g · C {round(totals.carbs)}g · F {round(totals.fat)}g · Fibre {round(totals.fiber)}g
+              </div>
+            </div>
+          );
+        })}
+
+        <div style={{ marginTop: 24, paddingTop: 14, borderTop: `2px solid ${theme.accent}` }}>
+          <div style={{ fontWeight: 700, marginBottom: 6 }}>Weekly Nutrition Summary</div>
+          <div className="flex gap-6 flex-wrap" style={{ fontSize: 12.5 }}>
+            <span>Avg Calories: <b>{round(weekAvg.cal)}</b> kcal</span>
+            <span>Avg Protein: <b>{round(weekAvg.protein)}</b> g</span>
+            <span>Avg Carbs: <b>{round(weekAvg.carbs)}</b> g</span>
+            <span>Avg Fat: <b>{round(weekAvg.fat)}</b> g</span>
+            <span>Avg Fibre: <b>{round(weekAvg.fiber)}</b> g</span>
+          </div>
+        </div>
+
+        {instructions.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontWeight: 700, marginBottom: 6 }}>Instructions</div>
+            <ul style={{ fontSize: 12, color: theme.textMuted, paddingLeft: 18 }}>
+              {instructions.map((ins, i) => <li key={i}>{ins}</li>)}
+            </ul>
+          </div>
+        )}
+        <div style={{ marginTop: 18, fontSize: 10, color: theme.textFaint }}>
+          This chart is a planning tool prepared by a dietitian and does not constitute a medical diagnosis. Nutrient values are approximate, based on typical Indian food composition data.
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function AnalyticsTab({ theme, weeklyBarData, macroChartData, targetCalories, wTotalsArr, weekAvg, microTargets }) {
+  return (
+    <div className="flex flex-col gap-5">
+      <h1 style={{ fontFamily: "Space Grotesk, sans-serif", fontSize: 22, fontWeight: 700 }}>Nutrition Analytics</h1>
+      <div className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
+        <Panel theme={theme} className="p-5">
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>Daily Calories vs Target</div>
+          <div style={{ height: 260 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyBarData}>
+                <CartesianGrid strokeDasharray="3 3" stroke={theme.divider} />
+                <XAxis dataKey="day" stroke={theme.textFaint} fontSize={11} />
+                <YAxis stroke={theme.textFaint} fontSize={11} />
+                <Tooltip contentStyle={{ background: theme.bg2, border: `1px solid ${theme.panelBorder}`, borderRadius: 8, fontSize: 12 }} />
+                <Bar dataKey="calories" fill={theme.accent} radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+        <Panel theme={theme} className="p-5">
+          <div style={{ fontWeight: 700, marginBottom: 12 }}>Avg Macro Distribution</div>
+          <div style={{ height: 220 }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie data={macroChartData} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={3}>
+                  {macroChartData.map((e, i) => <Cell key={i} fill={e.color} stroke="none" />)}
+                </Pie>
+                <Tooltip contentStyle={{ background: theme.bg2, border: `1px solid ${theme.panelBorder}`, borderRadius: 8, fontSize: 12 }} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </Panel>
+      </div>
+      <Panel theme={theme} className="p-5">
+        <div style={{ fontWeight: 700, marginBottom: 12 }}>Micronutrient Adequacy (weekly average)</div>
+        <div className="flex flex-col gap-3">
+          {[["fiber", weekAvg.fiber, theme.fiber], ["sugar", weekAvg.sugar, theme.warn], ["sodium", weekAvg.sodium, theme.danger]].map(([k, v, c]) => (
+            <div key={k}>
+              <div className="flex justify-between" style={{ fontSize: 12, marginBottom: 3 }}>
+                <span style={{ textTransform: "capitalize", color: theme.textMuted }}>{k}</span>
+                <span style={{ fontFamily: "JetBrains Mono, monospace" }}>{round(v, 1)} / {microTargets[k]}{k === "sodium" ? "mg" : "g"}</span>
+              </div>
+              <MiniBar value={v} target={microTargets[k]} color={c} theme={theme} />
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+</script>
+</body>
+</html>
